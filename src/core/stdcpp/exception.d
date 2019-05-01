@@ -6,100 +6,111 @@
  * Copyright: Copyright (c) 2016 D Language Foundation
  * License:   $(HTTP boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   $(HTTP digitalmars.com, Walter Bright)
+ *            Manu Evans
  * Source:    $(DRUNTIMESRC core/stdcpp/_exception.d)
  */
 
 module core.stdcpp.exception;
 
-version (CRuntime_DigitalMars)
+import core.stdcpp.xutility : __cplusplus, CppStdRevision;
+
+version (CppRuntime_DigitalMars)
+    version = GenericBaseException;
+version (CppRuntime_Gcc)
+    version = GenericBaseException;
+version (CppRuntime_Clang)
+    version = GenericBaseException;
+
+extern (C++, "std"):
+@nogc:
+
+///
+alias terminate_handler = void function() nothrow;
+///
+terminate_handler set_terminate(terminate_handler f) nothrow;
+///
+terminate_handler get_terminate() nothrow;
+///
+void terminate() nothrow;
+
+static if (__cplusplus < CppStdRevision.cpp17)
 {
-    import core.stdcpp.typeinfo;
+    ///
+    alias unexpected_handler = void function();
+    ///
+    deprecated unexpected_handler set_unexpected(unexpected_handler f) nothrow;
+    ///
+    deprecated unexpected_handler get_unexpected() nothrow;
+    ///
+    deprecated void unexpected();
+}
 
-    extern (C++, std)
+static if (__cplusplus < CppStdRevision.cpp17)
+{
+    ///
+    bool uncaught_exception() nothrow;
+}
+else static if (__cplusplus == CppStdRevision.cpp17)
+{
+    ///
+    deprecated bool uncaught_exception() nothrow;
+}
+static if (__cplusplus >= CppStdRevision.cpp17)
+{
+    ///
+    int uncaught_exceptions() nothrow;
+}
+
+version (GenericBaseException)
+{
+    ///
+    class exception
     {
-        alias void function() unexpected_handler;
-        unexpected_handler set_unexpected(unexpected_handler f) nothrow;
-        void unexpected();
+    @nogc:
+        ///
+        this() nothrow {}
+        ///
+        ~this() nothrow {} // HACK: this should extern, but then we have link errors!
 
-        alias void function() terminate_handler;
-        terminate_handler set_terminate(terminate_handler f) nothrow;
-        void terminate();
+        ///
+        const(char)* what() const nothrow { return "unknown"; } // HACK: this should extern, but then we have link errors!
 
-        bool uncaught_exception();
-
-        class exception
-        {
-            this() nothrow { }
-            this(const exception) nothrow { }
-            //exception operator=(const exception) nothrow { return this; }
-            //virtual ~this() nothrow;
-            void dtor() { }
-            const(char)* what() const nothrow;
-        }
-
-        class bad_exception : exception
-        {
-            this() nothrow { }
-            this(const bad_exception) nothrow { }
-            //bad_exception operator=(const bad_exception) nothrow { return this; }
-            //virtual ~this() nothrow;
-            override const(char)* what() const nothrow;
-        }
+    protected:
+        this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
     }
 }
-else version (Posix) // LDC: was `CRuntime_Glibc`
+else version (CppRuntime_Microsoft)
 {
-    extern (C++, std)
+    ///
+    class exception
     {
-        alias void function() unexpected_handler;
-        unexpected_handler set_unexpected(unexpected_handler f) nothrow;
-        void unexpected();
+    @nogc:
+        ///
+        this(const(char)* message = "unknown", int = 1) nothrow { msg = message; }
+        ///
+        ~this() nothrow {}
 
-        alias void function() terminate_handler;
-        terminate_handler set_terminate(terminate_handler f) nothrow;
-        void terminate();
+        ///
+        const(char)* what() const nothrow { return msg != null ? msg : "unknown exception"; }
 
-        pure bool uncaught_exception();
+        // TODO: do we want this? exceptions are classes... ref types.
+//        final ref exception opAssign(ref const(exception) e) nothrow { msg = e.msg; return this; }
 
-        class exception
-        {
-            this();
-            //virtual ~this();
-            void dtor1();
-            void dtor2();
-            const(char)* what() const;
-        }
+    protected:
+        void _Doraise() const {}
 
-        class bad_exception : exception
-        {
-            this();
-            //virtual ~this();
-            override const(char)* what() const;
-        }
+    protected:
+        const(char)* msg;
     }
+
 }
-else version (CRuntime_Microsoft)
+else
+    static assert(0, "Missing std::exception binding for this platform");
+
+///
+class bad_exception : exception
 {
-    extern (C++, std)
-    {
-        class exception
-        {
-            this();
-            this(const exception);
-            //exception operator=(const exception) { return this; }
-            //virtual ~this();
-            void dtor() { }
-            const(char)* what() const;
-
-          private:
-            const(char)* mywhat;
-            bool dofree;
-        }
-
-        class bad_exception : exception
-        {
-            this(const(char)* msg = "bad exception");
-            //virtual ~this();
-        }
-    }
+@nogc:
+    ///
+    this(const(char)* message = "bad exception") { super(message); }
 }

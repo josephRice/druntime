@@ -1,7 +1,7 @@
 /**
  * Contains druntime startup and shutdown routines.
  *
- * Copyright: Copyright Digital Mars 2000 - 2013.
+ * Copyright: Copyright Digital Mars 2000 - 2018.
  * License: Distributed under the
  *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
  *    (See accompanying file LICENSE)
@@ -26,7 +26,14 @@ private
 version (Windows)
 {
     private import core.stdc.wchar_;
-    private import core.sys.windows.windows;
+    private import core.sys.windows.basetsd /+: HANDLE+/;
+    private import core.sys.windows.shellapi /+: CommandLineToArgvW+/;
+    private import core.sys.windows.winbase /+: FreeLibrary, GetCommandLineW, GetProcAddress,
+        IsDebuggerPresent, LoadLibraryA, LoadLibraryW, LocalFree, WriteFile+/;
+    private import core.sys.windows.wincon /+: CONSOLE_SCREEN_BUFFER_INFO, GetConsoleOutputCP, GetConsoleScreenBufferInfo+/;
+    private import core.sys.windows.winnls /+: CP_UTF8, MultiByteToWideChar, WideCharToMultiByte+/;
+    private import core.sys.windows.winnt /+: WCHAR+/;
+    private import core.sys.windows.winuser /+: MB_ICONERROR, MessageBoxW+/;
 
     pragma(lib, "shell32.lib"); // needed for CommandLineToArgvW
 }
@@ -77,7 +84,7 @@ version (OSX)
     extern (C) __gshared void* __osx_stack_end = cast(void*)0xC0000000;
 }
 
-version(CRuntime_Microsoft)
+version (CRuntime_Microsoft)
 {
     extern(C) void init_msvc();
 }
@@ -110,7 +117,7 @@ version (Windows)
         return initLibrary(.LoadLibraryA(name));
     }
 
-    extern (C) void* rt_loadLibraryW(const wchar_t* name)
+    extern (C) void* rt_loadLibraryW(const WCHAR* name)
     {
         return initLibrary(.LoadLibraryW(name));
     }
@@ -359,7 +366,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
             init_msvc();
 
         // enable full precision for reals
-        version(Win64)
+        version (Win64)
             asm
             {
                 push    RAX;
@@ -369,7 +376,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
                 fldcw   word ptr [RSP];
                 pop     RAX;
             }
-        else version(Win32)
+        else version (Win32)
         {
             asm
             {
@@ -390,10 +397,10 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
          * Then, reparse into wargc/wargs, and then use Windows API to convert
          * to UTF-8.
          */
-        const wchar_t* wCommandLine = GetCommandLineW();
+        const wCommandLine = GetCommandLineW();
         immutable size_t wCommandLineLength = wcslen(wCommandLine);
         int wargc;
-        wchar_t** wargs = CommandLineToArgvW(wCommandLine, &wargc);
+        auto wargs = CommandLineToArgvW(wCommandLine, &wargc);
         // assert(wargc == argc); /* argc can be broken by Unicode arguments */
 
         // Allocate args[] on the stack - use wargc
@@ -429,7 +436,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         char[][] args = (cast(char[]*) alloca(argc * (char[]).sizeof))[0 .. argc];
 
         size_t totalArgsLength = 0;
-        foreach(i, ref arg; args)
+        foreach (i, ref arg; args)
         {
             arg = argv[i][0 .. strlen(argv[i])];
             totalArgsLength += arg.length;
@@ -449,9 +456,11 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         char[][] argsCopy = buff[0 .. args.length];
         auto argBuff = cast(char*) (buff + args.length);
         size_t j = 0;
-        foreach(arg; args)
+        foreach (arg; args)
         {
-            if (arg.length < 6 || arg[0..6] != "--DRT-") // skip D runtime options
+            import rt.config : rt_cmdline_enabled;
+
+            if (!rt_cmdline_enabled!() || arg.length < 6 || arg[0..6] != "--DRT-") // skip D runtime options
             {
                 argsCopy[j++] = (argBuff[0 .. arg.length] = arg[]);
                 argBuff += arg.length;
@@ -460,17 +469,17 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         args = argsCopy[0..j];
     }
 
-    bool trapExceptions = rt_trapExceptions;
+    auto useExceptionTrap = parseExceptionOptions();
 
     version (Windows)
     {
         if (IsDebuggerPresent())
-            trapExceptions = false;
+            useExceptionTrap = false;
     }
 
     void tryExec(scope void delegate() dg)
     {
-        if (trapExceptions)
+        if (useExceptionTrap)
         {
             try
             {
@@ -566,6 +575,18 @@ private void formatThrowable(Throwable t, scope void delegate(in char[] s) nothr
     }
 }
 
+private auto parseExceptionOptions()
+{
+    import rt.config : rt_configOption;
+    import core.internal.parseoptions : rt_parseOption;
+    const optName = "trapExceptions";
+    auto option = rt_configOption(optName);
+    auto trap = rt_trapExceptions;
+    if (option.length)
+        rt_parseOption(optName, option, trap, "");
+    return trap;
+}
+
 extern (C) void _d_print_throwable(Throwable t)
 {
     // On Windows, a console may not be present to print the output to.
@@ -575,7 +596,7 @@ extern (C) void _d_print_throwable(Throwable t)
     {
         static struct WSink
         {
-            wchar_t* ptr; size_t len;
+            WCHAR* ptr; size_t len;
 
             void sink(in char[] s) scope nothrow
             {
@@ -584,8 +605,8 @@ extern (C) void _d_print_throwable(Throwable t)
                         CP_UTF8, 0, s.ptr, cast(int)s.length, null, 0);
                 if (!swlen) return;
 
-                auto newPtr = cast(wchar_t*)realloc(ptr,
-                        (this.len + swlen + 1) * wchar_t.sizeof);
+                auto newPtr = cast(WCHAR*)realloc(ptr,
+                        (this.len + swlen + 1) * WCHAR.sizeof);
                 if (!newPtr) return;
                 ptr = newPtr;
                 auto written = MultiByteToWideChar(
@@ -593,7 +614,7 @@ extern (C) void _d_print_throwable(Throwable t)
                 len += written;
             }
 
-            wchar_t* get() { if (ptr) ptr[len] = 0; return ptr; }
+            typeof(ptr) get() { if (ptr) ptr[len] = 0; return ptr; }
 
             void free() { .free(ptr); }
         }

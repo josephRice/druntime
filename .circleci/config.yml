@@ -3,16 +3,16 @@ jobs:
   build:
     working_directory: ~/druntime
     docker:
-      - image: circleci/node:4.8.2
-    parallelism: 2
+      - image: circleci/buildpack-deps:18.04
+    parallelism: 1
     steps:
       - checkout
       - run:
-          command: ./.circleci/run.sh install-deps
-          name: Install DMD
-      - run:
           command: ./.circleci/run.sh setup-repos
           name: Clone DMD
+      - run:
+          command: ./.circleci/run.sh install-deps
+          name: Install DMD
       - run:
           command: ./.circleci/run.sh style
           name: Check code style

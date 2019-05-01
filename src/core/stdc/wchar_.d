@@ -28,7 +28,7 @@ extern (C):
 nothrow:
 @nogc:
 
-version( CRuntime_Glibc )
+version (CRuntime_Glibc)
 {
     ///
     struct mbstate_t
@@ -36,19 +36,58 @@ version( CRuntime_Glibc )
         int __count;
         union ___value
         {
-            wint_t __wch;
+            wint_t __wch = 0;
             char[4] __wchb;
         }
         ___value __value;
     }
 }
-else version (OpenBSD)
+else version (FreeBSD)
 {
+    ///
+    union __mbstate_t // <sys/_types.h>
+    {
+        char[128]   _mbstate8 = 0;
+        long        _mbstateL;
+    }
+
+    ///
+    alias mbstate_t = __mbstate_t;
+}
+else version (NetBSD)
+{
+    ///
     union __mbstate_t
     {
+        int64_t   __mbstateL;
         char[128] __mbstate8;
+    }
+
+    ///
+    alias mbstate_t = __mbstate_t;
+}
+else version (OpenBSD)
+{
+    ///
+    union __mbstate_t
+    {
+        char[128] __mbstate8 = 0;
         int64_t   __mbstateL;
     }
+
+    ///
+    alias mbstate_t = __mbstate_t;
+}
+else version (DragonFlyBSD)
+{
+    ///
+    union __mbstate_t                   // <sys/stdint.h>
+    {
+        char[128]   _mbstate8 = 0;
+        long        _mbstateL;
+    }
+
+    ///
     alias mbstate_t = __mbstate_t;
 }
 else version (Solaris)
@@ -65,14 +104,17 @@ else version (Solaris)
             int[6] __filler;
         }
     }
+
+    ///
+    alias mbstate_t = __mbstate_t;
 }
-else version( CRuntime_UClibc )
+else version (CRuntime_UClibc)
 {
     ///
     struct mbstate_t
     {
-        wchar_t __mask;
-        wchar_t __wc;
+        wchar_t __mask = 0;
+        wchar_t __wc = 0;
     }
 }
 else
@@ -145,7 +187,7 @@ extern (D) @trusted
     ///
     wint_t ungetwc(wint_t c, FILE* stream);
     ///
-    version( CRuntime_Microsoft )
+    version (CRuntime_Microsoft)
     {
         // MSVC defines this as an inline function.
         int fwide(FILE* stream, int mode) { return mode; }
@@ -218,7 +260,7 @@ pure wchar_t* wmemset(return wchar_t* s, wchar_t c, size_t n);
 ///
 size_t wcsftime(wchar_t* s, size_t maxsize, in wchar_t* format, in tm* timeptr);
 
-version( Windows )
+version (Windows)
 {
     ///
     wchar_t* _wasctime(tm*);      // non-standard

@@ -246,6 +246,9 @@ extern(C) Throwable _d_eh_enter_catch(_Unwind_Exception* exceptionObject)
     debug (EH_personality) writeln("__dmd_begin_catch(%p), object = %p", eh, eh.object);
 
     auto o = eh.object;
+    // Remove our reference to the exception. We should not decrease its refcount,
+    // because we pass the object on to the caller.
+    eh.object = null;
 
     // Pop off of chain
     if (eh != ExceptionHeader.pop())
@@ -336,11 +339,19 @@ extern(C) void _d_throw_exception(Throwable o)
         case _URC_END_OF_STACK:
             /* Unwound the stack without encountering a catch clause.
              * In C++, this would mean call uncaught_exception().
-             * In D, this can happen only if `rt_trapException` is cleared
+             * In D, this can happen only if `rt_trapExceptions` is cleared
              * since otherwise everything is enclosed by a top-level
              * try/catch.
              */
             fprintf(stderr, "uncaught exception\n");
+            /**
+            As _d_print_throwable() itself may throw multiple times when calling core.demangle,
+            and with the uncaught exception still on the EH stack, this doesn't bode well with core.demangle's error recovery.
+            */
+            version (LDC)
+                _d_eh_enter_catch(&eh.exception_object);
+            else
+                __dmd_begin_catch(&eh.exception_object);
             _d_print_throwable(o);
             abort();
             assert(0);

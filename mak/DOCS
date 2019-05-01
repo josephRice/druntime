@@ -7,6 +7,7 @@ DOCS=\
 	$(DOCDIR)\core_cpuid.html \
 	$(DOCDIR)\core_demangle.html \
 	$(DOCDIR)\core_exception.html \
+	$(DOCDIR)\core_lifetime.html \
 	$(DOCDIR)\core_math.html \
 	$(DOCDIR)\core_memory.html \
 	$(DOCDIR)\core_runtime.html \
@@ -38,8 +39,13 @@ DOCS=\
 	$(DOCDIR)\core_stdc_wchar_.html \
 	$(DOCDIR)\core_stdc_wctype.html \
 	\
+	$(DOCDIR)\core_stdcpp_allocator.html \
+	$(DOCDIR)\core_stdcpp_array.html \
 	$(DOCDIR)\core_stdcpp_exception.html \
+	$(DOCDIR)\core_stdcpp_new_.html \
+	$(DOCDIR)\core_stdcpp_string_view.html \
 	$(DOCDIR)\core_stdcpp_typeinfo.html \
+	$(DOCDIR)\core_stdcpp_type_traits.html \
 	\
 	$(DOCDIR)\core_sync_barrier.html \
 	$(DOCDIR)\core_sync_condition.html \
@@ -48,6 +54,19 @@ DOCS=\
 	$(DOCDIR)\core_sync_mutex.html \
 	$(DOCDIR)\core_sync_rwmutex.html \
 	$(DOCDIR)\core_sync_semaphore.html \
+	\
+	$(DOCDIR)\core_sys_darwin_crt_externs.html \
+	$(DOCDIR)\core_sys_darwin_dlfcn.html \
+	$(DOCDIR)\core_sys_darwin_execinfo.html \
+	$(DOCDIR)\core_sys_darwin_pthread.html \
+	$(DOCDIR)\core_sys_darwin_mach_dyld.html \
+	$(DOCDIR)\core_sys_darwin_mach_getsect.html \
+	$(DOCDIR)\core_sys_darwin_mach_kern_return.html \
+	$(DOCDIR)\core_sys_darwin_mach_loader.html \
+	$(DOCDIR)\core_sys_darwin_mach_port.html \
+	$(DOCDIR)\core_sys_darwin_mach_semaphore.html \
+	$(DOCDIR)\core_sys_darwin_mach_thread_act.html \
+	$(DOCDIR)\core_sys_darwin_netinet_in_.html \
 	\
     $(DOCDIR)\rt_aaA.html \
     $(DOCDIR)\rt_aApply.html \
@@ -140,7 +159,5 @@ DOCS=\
     $(DOCDIR)\rt_util_container_common.html \
     $(DOCDIR)\rt_util_container_hashtab.html \
     $(DOCDIR)\rt_util_container_treap.html \
-    $(DOCDIR)\rt_util_hash.html \
     $(DOCDIR)\rt_util_random.html \
     $(DOCDIR)\rt_util_typeinfo.html \
-    $(DOCDIR)\rt_util_utf.html \

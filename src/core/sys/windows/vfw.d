@@ -189,9 +189,9 @@ struct ICINFO {
     DWORD   dwFlags;
     DWORD   dwVersion;
     DWORD   dwVersionICM;
-    WCHAR[16]   szName;
-    WCHAR[128]  szDescription;
-    WCHAR[128]  szDriver;
+    WCHAR[16]   szName = 0;
+    WCHAR[128]  szDescription = 0;
+    WCHAR[128]  szDriver = 0;
 }
 
 enum {
@@ -890,7 +890,7 @@ struct AVISTREAMINFOW {
     RECT    rcFrame;
     DWORD   dwEditCount;
     DWORD   dwFormatChangeCount;
-    WCHAR[64]   szName;
+    WCHAR[64]   szName = 0;
 }
 alias AVISTREAMINFOW* LPAVISTREAMINFOW;
 
@@ -912,11 +912,11 @@ struct AVISTREAMINFOA {
     RECT    rcFrame;
     DWORD   dwEditCount;
     DWORD   dwFormatChangeCount;
-    char[64]    szName;
+    char[64]    szName = 0;
 }
 alias AVISTREAMINFOA* LPAVISTREAMINFOA;
 
-version(Unicode) {
+version (Unicode) {
     alias AVISTREAMINFOW    AVISTREAMINFO;
     alias LPAVISTREAMINFOW  LPAVISTREAMINFO;
 } else { // Unicode
@@ -939,7 +939,7 @@ struct AVIFILEINFOW {
     DWORD   dwRate;
     DWORD   dwLength;
     DWORD   dwEditCount;
-    WCHAR[64]   szFileType;
+    WCHAR[64]   szFileType = 0;
 }
 alias AVIFILEINFOW* LPAVIFILEINFOW;
 
@@ -955,11 +955,11 @@ struct AVIFILEINFOA {
     DWORD   dwRate;
     DWORD   dwLength;
     DWORD   dwEditCount;
-    char[64]    szFileType;
+    char[64]    szFileType = 0;
 }
 alias AVIFILEINFOA* LPAVIFILEINFOA;
 
-version(Unicode) {
+version (Unicode) {
     alias AVIFILEINFOW  AVIFILEINFO;
     alias LPAVIFILEINFOW    LPAVIFILEINFO;
 } else { // Unicode
@@ -1511,7 +1511,7 @@ extern (Windows) {
     HWND MCIWndCreateW(HWND hwndParent, HINSTANCE hInstance, DWORD dwStyle, LPCWSTR szFile);
 }
 
-version(Unicode) {
+version (Unicode) {
     alias MCIWndCreateW MCIWndCreate;
 } else { // Unicode
     alias MCIWndCreateA MCIWndCreate;
@@ -1541,7 +1541,7 @@ enum {
     MCIWNDF_NOTIFYMEDIAW        = 0x0800,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias MCIWNDF_NOTIFYMEDIAW  MCIWNDF_NOTIFYMEDIA;
 } else { // Unicode
     alias MCIWNDF_NOTIFYMEDIAA  MCIWNDF_NOTIFYMEDIA;
@@ -1762,7 +1762,7 @@ enum {
     MCIWNDM_OPENW               = WM_USER + 252,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias MCIWNDM_SENDSTRINGW       MCIWNDM_SENDSTRING;
     alias MCIWNDM_GETPOSITIONW      MCIWNDM_GETPOSITION;
     alias MCIWNDM_GETMODEW          MCIWNDM_GETMODE;
@@ -1985,7 +1985,7 @@ enum {
     WM_CAP_SET_CALLBACK_STATUSW = WM_CAP_UNICODE_START + 3,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias WM_CAP_SET_CALLBACK_ERRORW    WM_CAP_SET_CALLBACK_ERROR;
     alias WM_CAP_SET_CALLBACK_STATUSW   WM_CAP_SET_CALLBACK_STATUS;
 } else { // Unicode
@@ -2009,7 +2009,7 @@ enum {
     WM_CAP_DRIVER_GET_VERSIONW      = WM_CAP_UNICODE_START + 13,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias WM_CAP_DRIVER_GET_NAMEW       WM_CAP_DRIVER_GET_NAME;
     alias WM_CAP_DRIVER_GET_VERSIONW    WM_CAP_DRIVER_GET_VERSION;
 } else { // Unicode
@@ -2030,7 +2030,7 @@ enum {
     WM_CAP_FILE_SAVEDIBW            = WM_CAP_UNICODE_START + 25,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias WM_CAP_FILE_SET_CAPTURE_FILEW WM_CAP_FILE_SET_CAPTURE_FILE;
     alias WM_CAP_FILE_GET_CAPTURE_FILEW WM_CAP_FILE_GET_CAPTURE_FILE;
     alias WM_CAP_FILE_SAVEASW           WM_CAP_FILE_SAVEAS;
@@ -2073,7 +2073,7 @@ enum {
     WM_CAP_GET_MCI_DEVICEW      = WM_CAP_UNICODE_START + 67,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias WM_CAP_SET_MCI_DEVICEW    WM_CAP_SET_MCI_DEVICE;
     alias WM_CAP_GET_MCI_DEVICEW    WM_CAP_GET_MCI_DEVICE;
 } else { // Unicode
@@ -2094,7 +2094,7 @@ enum {
     WM_CAP_PAL_SAVEW            = WM_CAP_UNICODE_START + 81,
 }
 
-version(Unicode) {
+version (Unicode) {
     alias WM_CAP_PAL_OPENW  WM_CAP_PAL_OPEN;
     alias WM_CAP_PAL_SAVEW  WM_CAP_PAL_SAVE;
 } else { // Unicode
@@ -2274,7 +2274,7 @@ extern (Windows) {
     alias LRESULT function(HWND hWnd, int nID, LPCSTR lpsz) CAPERRORCALLBACKA;
 }
 
-version(Unicode) {
+version (Unicode) {
     alias CAPSTATUSCALLBACKW    CAPSTATUSCALLBACK;
     alias CAPERRORCALLBACKW     CAPERRORCALLBACK;
 } else { // Unicode
@@ -2299,7 +2299,7 @@ extern (Windows) {
     BOOL capGetDriverDescriptionW(UINT wDriverIndex, LPWSTR lpszName, int cbName, LPWSTR lpszVer, int cbVer);
 }
 
-version(Unicode) {
+version (Unicode) {
     alias capCreateCaptureWindowW   capCreateCaptureWindow;
     alias capGetDriverDescriptionW  capGetDriverDescription;
 } else { // Unicode
@@ -2391,7 +2391,7 @@ extern (Windows) {
     BOOL GetSaveFileNamePreviewW(LPOPENFILENAMEW lpofn);
 }
 
-version(Unicode) {
+version (Unicode) {
     alias GetOpenFileNamePreviewW   GetOpenFileNamePreview;
     alias GetSaveFileNamePreviewW   GetSaveFileNamePreview;
 } else { // Unicode

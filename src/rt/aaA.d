@@ -54,7 +54,6 @@ private:
         valsz = cast(uint) ti.value.tsize;
         buckets = allocBuckets(sz);
         firstUsed = cast(uint) buckets.length;
-        entryTI = fakeEntryTI(ti.key, ti.value);
         valoff = cast(uint) talign(keysz, ti.value.talign);
 
         import rt.lifetime : hasPostblit, unqualify;
@@ -63,6 +62,8 @@ private:
             flags |= Flags.keyHasPostblit;
         if ((ti.key.flags | ti.value.flags) & 1)
             flags |= Flags.hasPointers;
+
+        entryTI = fakeEntryTI(this, ti.key, ti.value);
     }
 
     Bucket[] buckets;
@@ -244,18 +245,39 @@ private bool hasDtor(const TypeInfo ti)
 }
 
 // build type info for Entry with additional key and value fields
-TypeInfo_Struct fakeEntryTI(const TypeInfo keyti, const TypeInfo valti)
+TypeInfo_Struct fakeEntryTI(ref Impl aa, const TypeInfo keyti, const TypeInfo valti)
 {
     import rt.lifetime : unqualify;
 
     auto kti = unqualify(keyti);
     auto vti = unqualify(valti);
-    if (!hasDtor(kti) && !hasDtor(vti))
+
+    // figure out whether RTInfo has to be generated (indicated by rtisize > 0)
+    enum pointersPerWord = 8 * (void*).sizeof * (void*).sizeof;
+    auto rtinfo = rtinfoNoPointers;
+    size_t rtisize = 0;
+    immutable(size_t)* keyinfo = void;
+    immutable(size_t)* valinfo = void;
+    if (aa.flags & Impl.Flags.hasPointers)
+    {
+        // classes are references
+        static bool isNoClass(const TypeInfo ti) { return ti && typeid(ti) !is typeid(TypeInfo_Class); }
+
+        keyinfo = cast(immutable(size_t)*) (isNoClass(keyti) ? keyti.rtInfo : rtinfoHasPointers);
+        valinfo = cast(immutable(size_t)*) (isNoClass(valti) ? valti.rtInfo : rtinfoHasPointers);
+
+        if (keyinfo is rtinfoHasPointers && valinfo is rtinfoHasPointers)
+            rtinfo = rtinfoHasPointers;
+        else
+            rtisize = 1 + (aa.valoff + aa.valsz + pointersPerWord - 1) / pointersPerWord;
+    }
+    bool entryHasDtor = hasDtor(kti) || hasDtor(vti);
+    if (rtisize == 0 && !entryHasDtor)
         return null;
 
     // save kti and vti after type info for struct
     enum sizeti = __traits(classInstanceSize, TypeInfo_Struct);
-    void* p = GC.malloc(sizeti + 2 * (void*).sizeof);
+    void* p = GC.malloc(sizeti + (2 + rtisize) * (void*).sizeof);
     import core.stdc.string : memcpy;
 
     memcpy(p, typeid(TypeInfo_Struct).initializer().ptr, sizeti);
@@ -268,21 +290,141 @@ TypeInfo_Struct fakeEntryTI(const TypeInfo keyti, const TypeInfo valti)
     static immutable tiName = __MODULE__ ~ ".Entry!(...)";
     ti.name = tiName;
 
+    ti.m_RTInfo = rtisize > 0 ? rtinfoEntry(aa, keyinfo, valinfo, cast(size_t*)(extra + 2), rtisize) : rtinfo;
+    ti.m_flags = ti.m_RTInfo is rtinfoNoPointers ? cast(TypeInfo_Struct.StructFlags)0 : TypeInfo_Struct.StructFlags.hasPointers;
+
     // we don't expect the Entry objects to be used outside of this module, so we have control
     // over the non-usage of the callback methods and other entries and can keep these null
     // xtoHash, xopEquals, xopCmp, xtoString and xpostblit
-    ti.m_RTInfo = null;
-    immutable entrySize = talign(kti.tsize, vti.talign) + vti.tsize;
+    immutable entrySize = aa.valoff + aa.valsz;
     ti.m_init = (cast(ubyte*) null)[0 .. entrySize]; // init length, but not ptr
 
-    // xdtor needs to be built from the dtors of key and value for the GC
-    ti.xdtorti = &entryDtor;
+    if (entryHasDtor)
+    {
+        // xdtor needs to be built from the dtors of key and value for the GC
+        ti.xdtorti = &entryDtor;
+        ti.m_flags |= TypeInfo_Struct.StructFlags.isDynamicType;
+    }
 
-    ti.m_flags = TypeInfo_Struct.StructFlags.isDynamicType;
-    ti.m_flags |= (keyti.flags | valti.flags) & TypeInfo_Struct.StructFlags.hasPointers;
     ti.m_align = cast(uint) max(kti.talign, vti.talign);
 
     return ti;
+}
+
+// build appropriate RTInfo at runtime
+immutable(void)* rtinfoEntry(ref Impl aa, immutable(size_t)* keyinfo, immutable(size_t)* valinfo, size_t* rtinfoData, size_t rtinfoSize)
+{
+    enum bitsPerWord = 8 * size_t.sizeof;
+
+    rtinfoData[0] = aa.valoff + aa.valsz;
+    rtinfoData[1..rtinfoSize] = 0;
+
+    void copyKeyInfo(string src)()
+    {
+        size_t pos = 1;
+        size_t keybits = aa.keysz / (void*).sizeof;
+        while (keybits >= bitsPerWord)
+        {
+            rtinfoData[pos] = mixin(src);
+            keybits -= bitsPerWord;
+            pos++;
+        }
+        if (keybits > 0)
+            rtinfoData[pos] = mixin(src) & ((cast(size_t) 1 << keybits) - 1);
+    }
+
+    if (keyinfo is rtinfoHasPointers)
+        copyKeyInfo!"~cast(size_t) 0"();
+    else if (keyinfo !is rtinfoNoPointers)
+        copyKeyInfo!"keyinfo[pos]"();
+
+    void copyValInfo(string src)()
+    {
+        size_t bitpos = aa.valoff / (void*).sizeof;
+        size_t pos = 1;
+        size_t dstpos = 1 + bitpos / bitsPerWord;
+        size_t begoff = bitpos % bitsPerWord;
+        size_t valbits = aa.valsz / (void*).sizeof;
+        size_t endoff = (bitpos + valbits) % bitsPerWord;
+        for (;;)
+        {
+            const bits = bitsPerWord - begoff;
+            size_t s = mixin(src);
+            rtinfoData[dstpos] |= s << begoff;
+            if (begoff > 0 && valbits > bits)
+                rtinfoData[dstpos+1] |= s >> bits;
+            if (valbits < bitsPerWord)
+                break;
+            valbits -= bitsPerWord;
+            dstpos++;
+            pos++;
+        }
+        if (endoff > 0)
+            rtinfoData[dstpos] &= ((cast(size_t) 1 << endoff) - 1);
+    }
+
+    if (valinfo is rtinfoHasPointers)
+        copyValInfo!"~cast(size_t) 0"();
+    else if (valinfo !is rtinfoNoPointers)
+        copyValInfo!"valinfo[pos]"();
+
+    return cast(immutable(void)*) rtinfoData;
+}
+
+unittest
+{
+    void test(K, V)()
+    {
+        static struct Entry
+        {
+            K key;
+            V val;
+        }
+        auto keyti = typeid(K);
+        auto valti = typeid(V);
+        auto valrti = valti.rtInfo();
+        auto keyrti = keyti.rtInfo();
+
+        auto impl = new Impl(typeid(V[K]));
+        if (valrti is rtinfoNoPointers && keyrti is rtinfoNoPointers)
+        {
+            assert(!(impl.flags & Impl.Flags.hasPointers));
+            assert(impl.entryTI is null);
+        }
+        else if (valrti is rtinfoHasPointers && keyrti is rtinfoHasPointers)
+        {
+            assert(impl.flags & Impl.Flags.hasPointers);
+            assert(impl.entryTI is null);
+        }
+        else
+        {
+            auto rtInfo  = cast(size_t*) impl.entryTI.rtInfo();
+            auto refInfo = cast(size_t*) typeid(Entry).rtInfo();
+            assert(rtInfo[0] == refInfo[0]); // size
+            enum bytesPerWord = 8 * size_t.sizeof * (void*).sizeof;
+            size_t words = (rtInfo[0] + bytesPerWord - 1) / bytesPerWord;
+            foreach (i; 0 .. words)
+                assert(rtInfo[1 + i] == refInfo[i + 1]);
+        }
+    }
+    test!(long, int)();
+    test!(string, string);
+    test!(ubyte[16], Object);
+
+    static struct Small
+    {
+        ubyte[16] guid;
+        string name;
+    }
+    test!(string, Small);
+
+    static struct Large
+    {
+        ubyte[1024] data;
+        string[412] names;
+        ubyte[1024] moredata;
+    }
+    test!(Large, Large);
 }
 
 //==============================================================================
@@ -365,8 +507,29 @@ extern (C) size_t _aaLen(in AA aa) pure nothrow @nogc
  *      If key was not in the aa, a mutable pointer to newly inserted value which
  *      is set to all zeros
  */
-extern (C) void* _aaGetY(AA* aa, const TypeInfo_AssociativeArray ti, in size_t valsz,
-    in void* pkey)
+extern (C) void* _aaGetY(AA* aa, const TypeInfo_AssociativeArray ti,
+    in size_t valsz, in void* pkey)
+{
+    bool found;
+    return _aaGetX(aa, ti, valsz, pkey, found);
+}
+
+/******************************
+ * Lookup *pkey in aa.
+ * Called only from implementation of require
+ * Params:
+ *      aa = associative array opaque pointer
+ *      ti = TypeInfo for the associative array
+ *      valsz = ignored
+ *      pkey = pointer to the key value
+ *      found = true if the value was found
+ * Returns:
+ *      if key was in the aa, a mutable pointer to the existing value.
+ *      If key was not in the aa, a mutable pointer to newly inserted value which
+ *      is set to all zeros
+ */
+extern (C) void* _aaGetX(AA* aa, const TypeInfo_AssociativeArray ti,
+    in size_t valsz, in void* pkey, out bool found)
 {
     // lazily alloc implementation
     if (aa.impl is null)
@@ -377,7 +540,10 @@ extern (C) void* _aaGetY(AA* aa, const TypeInfo_AssociativeArray ti, in size_t v
 
     // found a value => return it
     if (auto p = aa.findSlotLookup(hash, pkey, ti.key))
+    {
+        found = true;
         return p.entry + aa.valoff;
+    }
 
     auto p = aa.findSlotInsert(hash);
     if (p.deleted)
@@ -655,6 +821,7 @@ extern (C) hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
     auto uti = unqualify(tiRaw);
     auto ti = *cast(TypeInfo_AssociativeArray*)&uti;
     immutable off = aa.valoff;
+    auto keyHash = &ti.key.getHash;
     auto valHash = &ti.value.getHash;
 
     size_t h;
@@ -662,10 +829,11 @@ extern (C) hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
     {
         if (!b.filled)
             continue;
-        size_t[2] h2 = [b.hash, valHash(b.entry + off)];
+        size_t[2] h2 = [keyHash(b.entry), valHash(b.entry + off)];
         // use addition here, so that hash is independent of element order
         h += hashOf(h2);
     }
+
     return h;
 }
 
@@ -730,226 +898,12 @@ extern (C) pure nothrow @nogc @safe
     }
 }
 
-//==============================================================================
-// Unittests
-//------------------------------------------------------------------------------
+// Most tests are now in in test_aa.d
 
 // LDC_FIXME: Cannot compile these tests in this module (and this module only)
 // because the public signatures of the various functions are different from
 // the ones used here (AA vs. void*).
 version (LDC) {} else:
-
-pure nothrow unittest
-{
-    int[string] aa;
-
-    assert(aa.keys.length == 0);
-    assert(aa.values.length == 0);
-
-    aa["hello"] = 3;
-    assert(aa["hello"] == 3);
-    aa["hello"]++;
-    assert(aa["hello"] == 4);
-
-    assert(aa.length == 1);
-
-    string[] keys = aa.keys;
-    assert(keys.length == 1);
-    assert(keys[0] == "hello");
-
-    int[] values = aa.values;
-    assert(values.length == 1);
-    assert(values[0] == 4);
-
-    aa.rehash;
-    assert(aa.length == 1);
-    assert(aa["hello"] == 4);
-
-    aa["foo"] = 1;
-    aa["bar"] = 2;
-    aa["batz"] = 3;
-
-    assert(aa.keys.length == 4);
-    assert(aa.values.length == 4);
-
-    foreach (a; aa.keys)
-    {
-        assert(a.length != 0);
-        assert(a.ptr != null);
-    }
-
-    foreach (v; aa.values)
-    {
-        assert(v != 0);
-    }
-}
-
-unittest  // Test for Issue 10381
-{
-    alias II = int[int];
-    II aa1 = [0 : 1];
-    II aa2 = [0 : 1];
-    II aa3 = [0 : 2];
-    assert(aa1 == aa2); // Passes
-    assert(typeid(II).equals(&aa1, &aa2));
-    assert(!typeid(II).equals(&aa1, &aa3));
-}
-
-pure nothrow unittest
-{
-    string[int] key1 = [1 : "true", 2 : "false"];
-    string[int] key2 = [1 : "false", 2 : "true"];
-    string[int] key3;
-
-    // AA lits create a larger hashtable
-    int[string[int]] aa1 = [key1 : 100, key2 : 200, key3 : 300];
-
-    // Ensure consistent hash values are computed for key1
-    assert((key1 in aa1) !is null);
-
-    // Manually assigning to an empty AA creates a smaller hashtable
-    int[string[int]] aa2;
-    aa2[key1] = 100;
-    aa2[key2] = 200;
-    aa2[key3] = 300;
-
-    assert(aa1 == aa2);
-
-    // Ensure binary-independence of equal hash keys
-    string[int] key2a;
-    key2a[1] = "false";
-    key2a[2] = "true";
-
-    assert(aa1[key2a] == 200);
-}
-
-// Issue 9852
-pure nothrow unittest
-{
-    // Original test case (revised, original assert was wrong)
-    int[string] a;
-    a["foo"] = 0;
-    a.remove("foo");
-    assert(a == null); // should not crash
-
-    int[string] b;
-    assert(b is null);
-    assert(a == b); // should not deref null
-    assert(b == a); // ditto
-
-    int[string] c;
-    c["a"] = 1;
-    assert(a != c); // comparison with empty non-null AA
-    assert(c != a);
-    assert(b != c); // comparison with null AA
-    assert(c != b);
-}
-
-// Bugzilla 14104
-unittest
-{
-    import core.stdc.stdio;
-
-    alias K = const(ubyte)*;
-    size_t[K] aa;
-    immutable key = cast(K)(cast(size_t) uint.max + 1);
-    aa[key] = 12;
-    assert(key in aa);
-}
-
-unittest
-{
-    int[int] aa;
-    foreach (k, v; aa)
-        assert(false);
-    foreach (v; aa)
-        assert(false);
-    assert(aa.byKey.empty);
-    assert(aa.byValue.empty);
-    assert(aa.byKeyValue.empty);
-
-    size_t n;
-    aa = [0 : 3, 1 : 4, 2 : 5];
-    foreach (k, v; aa)
-    {
-        n += k;
-        assert(k >= 0 && k < 3);
-        assert(v >= 3 && v < 6);
-    }
-    assert(n == 3);
-    n = 0;
-
-    foreach (v; aa)
-    {
-        n += v;
-        assert(v >= 3 && v < 6);
-    }
-    assert(n == 12);
-
-    n = 0;
-    foreach (k, v; aa)
-    {
-        ++n;
-        break;
-    }
-    assert(n == 1);
-
-    n = 0;
-    foreach (v; aa)
-    {
-        ++n;
-        break;
-    }
-    assert(n == 1);
-}
-
-unittest
-{
-    int[int] aa;
-    assert(!aa.remove(0));
-    aa = [0 : 1];
-    assert(aa.remove(0));
-    assert(!aa.remove(0));
-    aa[1] = 2;
-    assert(!aa.remove(0));
-    assert(aa.remove(1));
-
-    assert(aa.length == 0);
-    assert(aa.byKey.empty);
-}
-
-// test zero sized value (hashset)
-unittest
-{
-    alias V = void[0];
-    auto aa = [0 : V.init];
-    assert(aa.length == 1);
-    assert(aa.byKey.front == 0);
-    assert(aa.byValue.front == V.init);
-    aa[1] = V.init;
-    assert(aa.length == 2);
-    aa[0] = V.init;
-    assert(aa.length == 2);
-    assert(aa.remove(0));
-    aa[0] = V.init;
-    assert(aa.length == 2);
-    assert(aa == [0 : V.init, 1 : V.init]);
-}
-
-// test tombstone purging
-unittest
-{
-    int[int] aa;
-    foreach (i; 0 .. 6)
-        aa[i] = i;
-    foreach (i; 0 .. 6)
-        assert(aa.remove(i));
-    foreach (i; 6 .. 10)
-        aa[i] = i;
-    assert(aa.length == 4);
-    foreach (i; 6 .. 10)
-        assert(i in aa);
-}
 
 // test postblit for AA literals
 unittest
@@ -999,61 +953,4 @@ unittest
     aa3 = null;
     GC.runFinalizers((cast(char*)(&entryDtor))[0 .. 1]);
     assert(T.dtor == 6 && T.postblit == 2);
-}
-
-// for aa.clear
-pure nothrow unittest
-{
-    int[int] aa;
-    assert(aa.length == 0);
-    foreach (i; 0 .. 100)
-        aa[i] = i * 2;
-    assert(aa.length == 100);
-    auto aa2 = aa;
-    assert(aa2.length == 100);
-    aa.clear();
-    assert(aa.length == 0);
-    assert(aa2.length == 0);
-
-    aa2[5] = 6;
-    assert(aa.length == 1);
-    assert(aa[5] == 6);
-}
-
-// test AA as key (Issue 16974)
-unittest
-{
-    int[int] a = [1 : 2], a2 = [1 : 2];
-
-    assert([a : 3] == [a : 3]);
-    assert([a : 3] == [a2 : 3]);
-
-    assert(typeid(a).getHash(&a) == typeid(a).getHash(&a));
-    assert(typeid(a).getHash(&a) == typeid(a).getHash(&a2));
-}
-
-// test duplicated keys in AA literal (issue 15290)
-unittest
-{
-    string[int] aa = [ 0: "a", 0: "b" ];
-    assert(aa.length == 1);
-    assert(aa.keys == [ 0 ]);
-}
-
-// test safety for alias-this'd AA that have unsafe opCast (issue 18071)
-unittest
-{
-    static struct Foo
-    {
-        int[int] aa;
-        auto opCast() pure nothrow @nogc
-        {
-            *cast(uint*)0xdeadbeef = 0xcafebabe;// unsafe
-            return null;
-        }
-        alias aa this;
-    }
-
-    Foo f;
-    () @safe { assert(f.byKey.empty); }();
 }

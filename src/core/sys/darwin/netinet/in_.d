@@ -13,16 +13,16 @@ import core.sys.darwin.sys.cdefs;
 
 public import core.sys.posix.netinet.in_;
 
-version(OSX)
+version (OSX)
     version = Darwin;
-else version(iOS)
+else version (iOS)
     version = Darwin;
-else version(TVOS)
+else version (TVOS)
     version = Darwin;
-else version(WatchOS)
+else version (WatchOS)
     version = Darwin;
 
-version(Darwin):
+version (Darwin):
 extern(C) nothrow @nogc:
 
 enum IPPROTO_IP = 0;
@@ -224,7 +224,7 @@ static if (_DARWIN_C_SOURCE)
     struct ip_opts
     {
         in_addr  ip_dst;
-        char[40] ip_opts;
+        char[40] ip_opts = 0;
     };
 
     enum IP_OPTIONS         = 1;

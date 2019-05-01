@@ -17,151 +17,156 @@ extern(C):
 nothrow:
 @nogc:
 
-version(CRuntime_Glibc)
+version (CRuntime_Glibc)
 {
     private enum utsNameLength = 65;
 
     struct utsname
     {
-        char[utsNameLength] sysname;
-        char[utsNameLength] nodename;
-        char[utsNameLength] release;
-        // The field name is version but version is a keyword in D.
-        char[utsNameLength] update;
-        char[utsNameLength] machine;
+        char[utsNameLength] sysname = 0;
+        char[utsNameLength] nodename = 0;
+        char[utsNameLength] release = 0;
+        char[utsNameLength] version_ = 0;
+        // TODO Deprecate after version_ has been in an official release.
+        alias update = version_;
+        char[utsNameLength] machine = 0;
 
-        char[utsNameLength] __domainname;
+        char[utsNameLength] __domainname = 0;
     }
 
     int uname(utsname* __name);
 }
-else version(Darwin)
+else version (Darwin)
 {
     private enum utsNameLength = 256;
 
     struct utsname
     {
-        char[utsNameLength] sysname;
-        char[utsNameLength] nodename;
-        char[utsNameLength] release;
-        // The field name is version but version is a keyword in D.
-        char[utsNameLength] update;
-        char[utsNameLength] machine;
+        char[utsNameLength] sysname = 0;
+        char[utsNameLength] nodename = 0;
+        char[utsNameLength] release = 0;
+        char[utsNameLength] version_ = 0;
+        // TODO Deprecate after version_ has been in an official release.
+        alias update = version_;
+        char[utsNameLength] machine = 0;
     }
 
     int uname(utsname* __name);
 }
-else version(FreeBSD)
+else version (FreeBSD)
 {
     //private enum SYS_NMLN = 32;       // old FreeBSD 1.1 ABI
     private enum SYS_NMLN = 256;
 
     struct utsname
     {
-        char[SYS_NMLN] sysname;
-        char[SYS_NMLN] nodename;
-        char[SYS_NMLN] release;
-        // The field name is version but version is a keyword in D.
-        char[SYS_NMLN] update;
-        char[SYS_NMLN] machine;
+        char[SYS_NMLN] sysname = 0;
+        char[SYS_NMLN] nodename = 0;
+        char[SYS_NMLN] release = 0;
+        char[SYS_NMLN] version_ = 0;
+        // TODO Deprecate after version_ has been in an official release.
+        alias update = version_;
+        char[SYS_NMLN] machine = 0;
     }
 
     int __xuname(int, void*);
     int uname()(utsname* __name) { return __xuname(SYS_NMLN, cast(void*) __name); }
 }
-else version(NetBSD)
+else version (NetBSD)
 {
     private enum utsNameLength = 256;
 
     struct utsname
     {
-        char[utsNameLength] sysname;
-        char[utsNameLength] nodename;
-        char[utsNameLength] release;
-        // The field name is version but version is a keyword in D.
-        char[utsNameLength] update;
-        char[utsNameLength] machine;
+        char[utsNameLength] sysname = 0;
+        char[utsNameLength] nodename = 0;
+        char[utsNameLength] release = 0;
+        char[utsNameLength] version_ = 0;
+        // TODO Deprecate after version_ has been in an official release.
+        alias update = version_;
+        char[utsNameLength] machine = 0;
     }
 
     int uname(utsname* __name);
 }
-else version(DragonFlyBSD)
+else version (DragonFlyBSD)
 {
     private enum utsNameLength = 32;
 
     struct utsname
     {
-        char[utsNameLength] sysname;
-        char[utsNameLength] nodename;
-        char[utsNameLength] release;
-        // The field name is version but version is a keyword in D.
-        char[utsNameLength] update;
-        char[utsNameLength] machine;
+        char[utsNameLength] sysname = 0;
+        char[utsNameLength] nodename = 0;
+        char[utsNameLength] release = 0;
+        char[utsNameLength] version_ = 0;
+        // TODO Deprecate after version_ has been in an official release.
+        alias update = version_;
+        char[utsNameLength] machine = 0;
     }
 
     int uname(utsname* __name);
 }
-else version(Solaris)
+else version (Solaris)
 {
     private enum SYS_NMLN = 257;
 
     struct utsname
     {
-        char[SYS_NMLN] sysname;
-        char[SYS_NMLN] nodename;
-        char[SYS_NMLN] release;
+        char[SYS_NMLN] sysname = 0;
+        char[SYS_NMLN] nodename = 0;
+        char[SYS_NMLN] release = 0;
         // The field name is version but version is a keyword in D.
-        char[SYS_NMLN] _version;
-        char[SYS_NMLN] machine;
+        char[SYS_NMLN] _version = 0;
+        char[SYS_NMLN] machine = 0;
     }
 
     int uname(utsname* __name);
 }
-else version(CRuntime_Bionic)
+else version (CRuntime_Bionic)
 {
     private enum SYS_NMLN = 65;
 
     struct utsname
     {
-        char[SYS_NMLN] sysname;
-        char[SYS_NMLN] nodename;
-        char[SYS_NMLN] release;
+        char[SYS_NMLN] sysname = 0;
+        char[SYS_NMLN] nodename = 0;
+        char[SYS_NMLN] release = 0;
         // The field name is version but version is a keyword in D.
-        char[SYS_NMLN] _version;
-        char[SYS_NMLN] machine;
-        char[SYS_NMLN] domainname;
+        char[SYS_NMLN] _version = 0;
+        char[SYS_NMLN] machine = 0;
+        char[SYS_NMLN] domainname = 0;
     }
 
     int uname(utsname*);
 }
-else version(CRuntime_Musl)
+else version (CRuntime_Musl)
 {
     private enum SYS_NMLN = 65;
 
     struct utsname
     {
-        char[SYS_NMLN] sysname;
-        char[SYS_NMLN] nodename;
-        char[SYS_NMLN] release;
-        char[SYS_NMLN] _version;
-        char[SYS_NMLN] machine;
-        char[SYS_NMLN] domainname;
+        char[SYS_NMLN] sysname = 0;
+        char[SYS_NMLN] nodename = 0;
+        char[SYS_NMLN] release = 0;
+        char[SYS_NMLN] _version = 0;
+        char[SYS_NMLN] machine = 0;
+        char[SYS_NMLN] domainname = 0;
     }
 
     int uname(utsname*);
 }
-else version(CRuntime_UClibc)
+else version (CRuntime_UClibc)
 {
     private enum utsNameLength = 65;
 
     struct utsname
     {
-        char[utsNameLength] sysname;
-        char[utsNameLength] nodename;
-        char[utsNameLength] release;
-        char[utsNameLength] version_;
-        char[utsNameLength] machine;
-        char[utsNameLength] domainname;
+        char[utsNameLength] sysname = 0;
+        char[utsNameLength] nodename = 0;
+        char[utsNameLength] release = 0;
+        char[utsNameLength] version_ = 0;
+        char[utsNameLength] machine = 0;
+        char[utsNameLength] domainname = 0;
     }
 
     int uname(utsname*);

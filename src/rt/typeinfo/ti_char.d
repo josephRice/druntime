@@ -26,7 +26,7 @@ class TypeInfo_a : TypeInfo
 
     override size_t getHash(scope const void* p)
     {
-        return *cast(char *)p;
+        return *cast(const char *)p;
     }
 
     override bool equals(in void* p1, in void* p2)
@@ -59,4 +59,6 @@ class TypeInfo_a : TypeInfo
 
         return (&c)[0 .. 1];
     }
+
+    override @property immutable(void)* rtInfo() nothrow pure const @safe { return rtinfoNoPointers; }
 }

@@ -18,7 +18,6 @@ private
     import core.stdc.stdio;
     import core.stdc.stdlib;
     import core.stdc.string;
-    import core.internal.string;
 
     version (CRuntime_Microsoft)
         alias core.stdc.stdlib._strtoui64 strtoull;
@@ -548,7 +547,10 @@ private Symbol* trace_addsym(Symbol** proot, const(char)[] id)
     auto rover = *parent;
     while (rover !is null)               // while we haven't run out of tree
     {
-        auto cmp = dstrcmp(id, rover.Sident);
+        immutable len = id.length <= rover.Sident.length ? id.length : rover.Sident.length;
+        int cmp = memcmp(id.ptr, rover.Sident.ptr, len);
+        if (!cmp)
+            cmp = id.length < rover.Sident.length ? -1 : (id.length > rover.Sident.length);
         if (cmp == 0)
         {
             return rover;
@@ -661,7 +663,7 @@ void _c_trace_epi()
         // totaltime is time spent in this function + all time spent in
         // subfunctions - bookkeeping overhead.
         --tos.sym.recursion;
-        if(tos.sym.recursion == 0)
+        if (tos.sym.recursion == 0)
             tos.sym.totaltime += totaltime;
 
         //if (totaltime < tos.subtime)
@@ -841,39 +843,64 @@ version (Windows)
 }
 else
 {
-    extern (D) void QueryPerformanceCounter(timer_t* ctr)
+    version (LDC)
     {
-        version (D_InlineAsm_X86)
+        version (AArch64)
         {
-            asm
+            import ldc.llvmasm: __asm;
+            // We cannot use ldc.intrinsics.llvm_readcyclecounter because that is not an accurate
+            // time counter (it is a counter of CPU cycles, where here we want a time clock).
+            // Also, priviledged execution rights are needed to enable correct counting with
+            // ldc.intrinsics.llvm_readcyclecounter on AArch64.
+            extern (D) void QueryPerformanceCounter(timer_t* ctr)
             {
-                naked                   ;
-                mov       ECX,EAX       ;
-                rdtsc                   ;
-                mov   [ECX],EAX         ;
-                mov   4[ECX],EDX        ;
-                ret                     ;
+                *ctr = __asm!ulong("mrs $0, cntvct_el0", "=r");
             }
-        }
-        else version (D_InlineAsm_X86_64)
-        {
-            asm
+            extern (D) void QueryPerformanceFrequency(timer_t* freq)
             {
-                naked                   ;
-                rdtsc                   ;
-                mov   [RDI],EAX         ;
-                mov   4[RDI],EDX        ;
-                ret                     ;
+                *freq = __asm!ulong("mrs $0, cntfrq_el0", "=r");
             }
-        }
-        else version (LDC)
-        {
-            import ldc.intrinsics: llvm_readcyclecounter;
-            *ctr = llvm_readcyclecounter();
         }
         else
         {
-            static assert(0);
+            extern (D) void QueryPerformanceCounter(timer_t* ctr)
+            {
+                import ldc.intrinsics: llvm_readcyclecounter;
+                *ctr = llvm_readcyclecounter();
+            }
+        }
+    }
+    else
+    {
+        extern (D) void QueryPerformanceCounter(timer_t* ctr)
+        {
+            version (D_InlineAsm_X86)
+            {
+                asm
+                {
+                    naked                   ;
+                    mov       ECX,EAX       ;
+                    rdtsc                   ;
+                    mov   [ECX],EAX         ;
+                    mov   4[ECX],EDX        ;
+                    ret                     ;
+                }
+            }
+            else version (D_InlineAsm_X86_64)
+            {
+                asm
+                {
+                    naked                   ;
+                    rdtsc                   ;
+                    mov   [RDI],EAX         ;
+                    mov   4[RDI],EDX        ;
+                    ret                     ;
+                }
+            }
+            else
+            {
+                static assert(0);
+            }
         }
     }
 }

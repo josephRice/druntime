@@ -52,7 +52,7 @@ enum BFFM_SETSTATUSTEXTW = WM_USER + 104;
 enum BFFM_SETOKTEXT = WM_USER + 105;
 enum BFFM_SETEXPANDED = WM_USER + 106;
 
-version(Unicode) {
+version (Unicode) {
     alias BFFM_SETSTATUSTEXTW BFFM_SETSTATUSTEXT;
     alias BFFM_SETSELECTIONW BFFM_SETSELECTION;
     alias BFFM_VALIDATEFAILEDW BFFM_VALIDATEFAILED;
@@ -111,7 +111,7 @@ enum SHCNF_TYPE = 0xFF;
 enum SHCNF_FLUSH = 0x1000;
 enum SHCNF_FLUSHNOWAIT = 0x2000;
 
-version(Unicode) {
+version (Unicode) {
     alias SHCNF_PATHW SHCNF_PATH;
     alias SHCNF_PRINTERW SHCNF_PRINTER;
 } else {
@@ -255,7 +255,7 @@ const TCHAR[]
     CFSTR_FILEDESCRIPTORW   = "FileGroupDescriptorW",
     CFSTR_INETURLW          = "UniformResourceLocatorW";
 
-version(Unicode) {
+version (Unicode) {
     alias CFSTR_FILENAMEW CFSTR_FILENAME;
     alias CFSTR_FILENAMEMAPW CFSTR_FILENAMEMAP;
     alias CFSTR_FILEDESCRIPTORW CFSTR_FILEDESCRIPTOR;
@@ -290,7 +290,7 @@ enum GCS_HELPTEXTW=5;
 enum GCS_VALIDATEW=6;
 enum GCS_UNICODE=4;
 
-version(Unicode) {
+version (Unicode) {
     alias GCS_VERBW GCS_VERB;
     alias GCS_HELPTEXTW GCS_HELPTEXT;
     alias GCS_VALIDATEW GCS_VALIDATE;
@@ -507,7 +507,7 @@ struct FILEDESCRIPTORA {
     FILETIME ftLastWriteTime;
     DWORD nFileSizeHigh;
     DWORD nFileSizeLow;
-    CHAR[MAX_PATH] cFileName;
+    CHAR[MAX_PATH] cFileName = 0;
 }
 alias FILEDESCRIPTORA* LPFILEDESCRIPTORA;
 
@@ -522,7 +522,7 @@ struct FILEDESCRIPTORW {
     FILETIME ftLastWriteTime;
     DWORD nFileSizeHigh;
     DWORD nFileSizeLow;
-    WCHAR[MAX_PATH] cFileName;
+    WCHAR[MAX_PATH] cFileName = 0;
 }
 alias FILEDESCRIPTORW* LPFILEDESCRIPTORW;
 
@@ -594,7 +594,7 @@ struct FVSHOWINFO {
     DWORD dwFlags;
     RECT rect;
     LPUNKNOWN punkRel;
-    OLECHAR[MAX_PATH] strNewFile;
+    OLECHAR[MAX_PATH] strNewFile = 0;
 }
 alias FVSHOWINFO* LPFVSHOWINFO;
 
@@ -632,8 +632,8 @@ static if (_WIN32_IE >= 0x500) {
     struct EXTRASEARCH
      {
         GUID guidSearch;
-        WCHAR[80] wszFriendlyName;
-        WCHAR[2084] wszUrl;
+        WCHAR[80] wszFriendlyName = 0;
+        WCHAR[2084] wszUrl = 0;
     }
     alias EXTRASEARCH* LPEXTRASEARCH;
 
@@ -656,8 +656,8 @@ static if (_WIN32_IE >= 0x500) {
     struct PERSIST_FOLDER_TARGET_INFO
      {
         LPITEMIDLIST pidlTargetFolder;
-        WCHAR[MAX_PATH] szTargetParsingName;
-        WCHAR[MAX_PATH] szNetworkProvider;
+        WCHAR[MAX_PATH] szTargetParsingName = 0;
+        WCHAR[MAX_PATH] szNetworkProvider = 0;
         DWORD dwAttributes;
         int csidl;
     }
@@ -699,7 +699,7 @@ static if (_WIN32_IE >= 0x500) {
         struct SHCOLUMNINIT {
             ULONG dwFlags;
             ULONG dwReserved;
-            WCHAR[MAX_PATH] wszFolder;
+            WCHAR[MAX_PATH] wszFolder = 0;
         }
         alias SHCOLUMNINIT*        LPSHCOLUMNINIT;
         alias const(SHCOLUMNINIT)* LPCSHCOLUMNINIT;
@@ -708,8 +708,8 @@ static if (_WIN32_IE >= 0x500) {
             ULONG dwFlags;
             DWORD dwFileAttributes;
             ULONG dwReserved;
-            WCHAR *pwszExt;
-            WCHAR[MAX_PATH] wszFile;
+            WCHAR *pwszExt = 0;
+            WCHAR[MAX_PATH] wszFile = 0;
         }
         alias SHCOLUMNDATA*        LPSHCOLUMNDATA;
         alias const(SHCOLUMNDATA)* LPCSHCOLUMNDATA;
@@ -725,8 +725,8 @@ enum MAX_COLUMN_DESC_LEN = 128;
         DWORD fmt;
         UINT cChars;
         DWORD csFlags;
-        WCHAR[MAX_COLUMN_NAME_LEN] wszTitle;
-        WCHAR[MAX_COLUMN_DESC_LEN] wszDescription;
+        WCHAR[MAX_COLUMN_NAME_LEN] wszTitle = 0;
+        WCHAR[MAX_COLUMN_DESC_LEN] wszDescription = 0;
     }
     alias SHCOLUMNINFO*        LPSHCOLUMNINFO;
     alias const(SHCOLUMNINFO)* LPCSHCOLUMNINFO;
@@ -779,7 +779,7 @@ interface IExtractIconW : IUnknown {
 }
 alias IExtractIconW LPEXTRACTICONW;
 
-version(Unicode) {
+version (Unicode) {
     alias IExtractIconW IExtractIcon;
     alias LPEXTRACTICONW LPEXTRACTICON;
 } else {
@@ -1289,7 +1289,7 @@ static if (_WIN32_WINNT >= 0x500) {
     HRESULT SHCoCreateInstance(LPCWSTR, REFCLSID, IUnknown, REFIID, void**);
 }
 
-version(Unicode) {
+version (Unicode) {
     alias IShellExecuteHookW IShellExecuteHook;
     alias IShellLinkW IShellLink;
     alias BROWSEINFOW BROWSEINFO;

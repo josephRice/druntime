@@ -42,7 +42,7 @@ enum EI_NIDENT = 16;
 
 struct Elf32_Ehdr
 {
-    char[EI_NIDENT] e_ident;
+    char[EI_NIDENT] e_ident = 0;
     Elf32_Half    e_type;
     Elf32_Half    e_machine;
     Elf32_Word    e_version;
@@ -60,7 +60,7 @@ struct Elf32_Ehdr
 
 struct Elf64_Ehdr
 {
-    char[EI_NIDENT] e_ident;
+    char[EI_NIDENT] e_ident = 0;
     Elf64_Half    e_type;
     Elf64_Half    e_machine;
     Elf64_Word    e_version;
@@ -314,6 +314,7 @@ enum SHF_LINK_ORDER =       (1 << 7);
 enum SHF_OS_NONCONFORMING = (1 << 8);
 enum SHF_GROUP =            (1 << 9);
 enum SHF_TLS =              (1 << 10);
+enum SHF_COMPRESSED =       (1 << 11);
 enum SHF_MASKOS =           0x0ff00000;
 enum SHF_MASKPROC =         0xf0000000;
 enum SHF_ORDERED =          (1 << 30);

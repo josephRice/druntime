@@ -14,7 +14,9 @@ module rt.deh_win32;
 version (LDC) {} else:
 version (Win32):
 
-import core.sys.windows.windows;
+import core.sys.windows.basetsd /+: ULONG_PTR+/;
+import core.sys.windows.windef /+: BOOL, BYTE, DWORD+/;
+import core.sys.windows.winnt /+: PVOID+/;
 import rt.monitor_;
 //import core.stdc.stdio;
 
@@ -437,7 +439,7 @@ EXCEPTION_DISPOSITION _d_framehandler(
         DCatchBlock *pcb;
         uint ncatches;              // number of catches in the current handler
 
-        /* The Master or Boss exception controls which catch() clause will
+        /* The Master or Boss exception controls which catch () clause will
          * catch the exception. If all collateral exceptions are derived from
          * Exception, the boss is the first exception thrown. Otherwise,
          * the first Error is the boss.
@@ -467,7 +469,7 @@ EXCEPTION_DISPOSITION _d_framehandler(
                     int match = 0;
                     EXCEPTION_RECORD * er = exceptionRecord;
                     // We need to check all the collateral exceptions.
-                    for(;;)
+                    for (;;)
                     {
                         if (er.ExceptionCode == STATUS_DIGITAL_MARS_D_EXCEPTION)
                         {
@@ -540,7 +542,7 @@ EXCEPTION_DISPOSITION _d_framehandler(
                         Error masterError = null;
                         Throwable pti;
 
-                        for(;;)
+                        for (;;)
                         {
                             Throwable w = _d_translate_se_to_d_exception(z, context);
                             if (z == master && (z.ExceptionFlags & EXCEPTION_COLLATERAL))

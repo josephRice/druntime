@@ -13,9 +13,7 @@
  */
 module rt.typeinfo.ti_cent;
 
-private import rt.util.hash;
-
-static if(is(cent)):
+static if (is(cent)):
 
 // cent
 
@@ -30,7 +28,8 @@ class TypeInfo_zi : TypeInfo
 
     override size_t getHash(scope const void* p)
     {
-        return rt.util.hash.hashOf(p[0 .. cent.sizeof], 0);
+        // cent & ucent hash the same if ucent.sizeof >= size_t.sizeof.
+        return hashOf(*cast(const ucent*) p);
     }
 
     override bool equals(in void* p1, in void* p2)
@@ -70,4 +69,6 @@ class TypeInfo_zi : TypeInfo
     {
         return cent.alignof;
     }
+
+    override @property immutable(void)* rtInfo() nothrow pure const @safe { return rtinfoNoPointers; }
 }

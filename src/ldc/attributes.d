@@ -185,10 +185,10 @@ alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag(
  *     double s = 0;
  *     foreach(size_t i; 0..a.length)
  *     {
- *         s = inlineIR!(`
- *         %p = fmul fast double %0, %1
- *         %r = fadd fast double %p, %2
- *         ret double %r`, double)(a[i], b[i], s);
+ *         import ldc.llvmasm: __ir;
+ *         s = __ir!(`%p = fmul fast double %0, %1
+ *                    %r = fadd fast double %p, %2
+ *                    ret double %r`, double)(a[i], b[i], s);
  *     }
  *     return s;
  * }
@@ -211,6 +211,22 @@ struct llvmFastMathFlag
 {
     string flag;
 }
+
+/**
+ * Adds LLVM's "naked" attribute to a function, disabling function prologue /
+ * epilogue emission, incl. LDC's.
+ * Intended to be used in combination with a function body defined via
+ * ldc.llvmasm.__asm() and/or ldc.simd.inlineIR().
+ */
+enum naked = llvmAttr("naked");
+
+/**
+ * Adds LLVM's "noalias" attribute to a function parameter, with semantics
+ * very similar to C99 "restrict".
+ * The parameter needs to boil down to a pointer, e.g., be a D pointer, class
+ * reference or a `ref` parameter.
+ */
+enum restrict = llvmAttr("noalias");
 
 /**
  * Sets the optimization strategy for a function.

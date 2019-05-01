@@ -10,10 +10,10 @@
  */
 module rt.mach_utils;
 
-version(OSX):
+version (OSX):
 
-import core.sys.osx.mach.dyld;
-import core.sys.osx.mach.getsect;
+import core.sys.darwin.mach.dyld;
+import core.sys.darwin.mach.getsect;
 
 struct SectionRef
 {
@@ -23,9 +23,9 @@ struct SectionRef
 
 static immutable SectionRef[] dataSections =
 [
-	{SEG_DATA, SECT_DATA},
-	{SEG_DATA, SECT_BSS},
-	{SEG_DATA, SECT_COMMON}
+    {SEG_DATA, SECT_DATA},
+    {SEG_DATA, SECT_BSS},
+    {SEG_DATA, SECT_COMMON}
 ];
 
 ubyte[] getSection(in mach_header* header, intptr_t slide,

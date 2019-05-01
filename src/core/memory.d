@@ -139,6 +139,7 @@ private
 
     extern (C) BlkInfo_ gc_query( void* p ) pure nothrow;
     extern (C) GC.Stats gc_stats ( ) nothrow @nogc;
+    extern (C) GC.ProfileStats gc_profileStats ( ) nothrow @nogc @safe;
 
     extern (C) void gc_addRoot( in void* p ) nothrow @nogc;
     extern (C) void gc_addRange( in void* p, size_t sz, const TypeInfo ti = null ) nothrow @nogc;
@@ -168,6 +169,24 @@ struct GC
         size_t usedSize;
         /// number of free bytes on the GC heap (might only get updated after a collection)
         size_t freeSize;
+    }
+
+    /**
+     * Aggregation of current profile information
+     */
+    static struct ProfileStats
+    {
+        import core.time : Duration;
+        /// total number of GC cycles
+        size_t numCollections;
+        /// total time spent doing GC
+        Duration totalCollectionTime;
+        /// total time threads were paused doing GC
+        Duration totalPauseTime;
+        /// largest time threads were paused during one GC cycle
+        Duration maxPauseTime;
+        /// largest time spent doing one GC cycle
+        Duration maxCollectionTime;
     }
 
     /**
@@ -435,45 +454,54 @@ struct GC
 
 
     /**
-     * If sz is zero, the memory referenced by p will be deallocated as if
-     * by a call to free.  A new memory block of size sz will then be
-     * allocated as if by a call to malloc, or the implementation may instead
-     * resize the memory block in place.  The contents of the new memory block
-     * will be the same as the contents of the old memory block, up to the
-     * lesser of the new and old sizes.  Note that existing memory will only
-     * be freed by realloc if sz is equal to zero.  The garbage collector is
-     * otherwise expected to later reclaim the memory block if it is unused.
-     * If allocation fails, this function will call onOutOfMemory which is
-     * expected to throw an OutOfMemoryError.  If p references memory not
-     * originally allocated by this garbage collector, or if it points to the
-     * interior of a memory block, no action will be taken.  If ba is zero
-     * (the default) and p references the head of a valid, known memory block
-     * then any bits set on the current block will be set on the new block if a
-     * reallocation is required.  If ba is not zero and p references the head
-     * of a valid, known memory block then the bits in ba will replace those on
-     * the current memory block and will also be set on the new block if a
-     * reallocation is required.
+     * Extend, shrink or allocate a new block of memory keeping the contents of
+     * an existing block
+     *
+     * If `sz` is zero, the memory referenced by p will be deallocated as if
+     * by a call to `free`.
+     * If `p` is `null`, new memory will be allocated via `malloc`.
+     * If `p` is pointing to memory not allocated from the GC or to the interior
+     * of an allocated memory block, no operation is performed and null is returned.
+     *
+     * Otherwise, a new memory block of size `sz` will be allocated as if by a
+     * call to `malloc`, or the implementation may instead resize or shrink the memory
+     * block in place.
+     * The contents of the new memory block will be the same as the contents
+     * of the old memory block, up to the lesser of the new and old sizes.
+     *
+     * The caller guarantees that there are no other live pointers to the
+     * passed memory block, still it might not be freed immediately by `realloc`.
+     * The garbage collector can reclaim the memory block in a later
+     * collection if it is unused.
+     * If allocation fails, this function will throw an `OutOfMemoryError`.
+     *
+     * If `ba` is zero (the default) the attributes of the existing memory
+     * will be used for an allocation.
+     * If `ba` is not zero and no new memory is allocated, the bits in ba will
+     * replace those of the current memory block.
      *
      * Params:
-     *  p  = A pointer to the root of a valid memory block or to null.
+     *  p  = A pointer to the base of a valid memory block or to `null`.
      *  sz = The desired allocation size in bytes.
-     *  ba = A bitmask of the attributes to set on this block.
+     *  ba = A bitmask of the BlkAttr attributes to set on this block.
      *  ti = TypeInfo to describe the memory. The GC might use this information
      *       to improve scanning for pointers or to call finalizers.
      *
      * Returns:
-     *  A reference to the allocated memory on success or null if sz is
-     *  zero.  On failure, the original value of p is returned.
+     *  A reference to the allocated memory on success or `null` if `sz` is
+     *  zero or the pointer does not point to the base of an GC allocated
+     *  memory block.
      *
      * Throws:
-     *  OutOfMemoryError on allocation failure.
+     *  `OutOfMemoryError` on allocation failure.
      */
     static void* realloc( void* p, size_t sz, uint ba = 0, const TypeInfo ti = null ) pure nothrow
     {
         return gc_realloc( p, sz, ba, ti );
     }
 
-    /// Issue 13111
+    // https://issues.dlang.org/show_bug.cgi?id=13111
+    ///
     unittest
     {
         enum size1 = 1 << 11 + 1; // page in large object pool
@@ -482,7 +510,7 @@ struct GC
         auto data1 = cast(ubyte*)GC.calloc(size1);
         auto data2 = cast(ubyte*)GC.realloc(data1, size2);
 
-        BlkInfo info = query(data2);
+        GC.BlkInfo info = GC.query(data2);
         assert(info.size >= size2);
     }
 
@@ -681,6 +709,15 @@ struct GC
     }
 
     /**
+     * Returns runtime profile stats for currently active GC implementation
+     * See `core.memory.GC.ProfileStats` for list of available metrics.
+     */
+    static ProfileStats profileStats() nothrow @nogc @safe
+    {
+        return gc_profileStats();
+    }
+
+    /**
      * Adds an internal root pointing to the GC memory block referenced by p.
      * As a result, the block referenced by p itself and any blocks accessible
      * via it will be considered live until the root is removed again.
@@ -822,35 +859,35 @@ struct GC
  *     $(LINK2 https://dlang.org/spec/function.html#pure-functions, D's rules for purity),
  *     which allow for memory allocation under specific circumstances.
  */
-void* pureMalloc(size_t size) @trusted pure @nogc nothrow
+void* pureMalloc()(size_t size) @trusted pure @nogc nothrow
 {
-    const errnosave = fakePureErrno();
+    const errnosave = fakePureErrno;
     void* ret = fakePureMalloc(size);
-    fakePureErrno() = errnosave;
+    fakePureErrno = errnosave;
     return ret;
 }
 /// ditto
-void* pureCalloc(size_t nmemb, size_t size) @trusted pure @nogc nothrow
+void* pureCalloc()(size_t nmemb, size_t size) @trusted pure @nogc nothrow
 {
-    const errnosave = fakePureErrno();
+    const errnosave = fakePureErrno;
     void* ret = fakePureCalloc(nmemb, size);
-    fakePureErrno() = errnosave;
+    fakePureErrno = errnosave;
     return ret;
 }
 /// ditto
-void* pureRealloc(void* ptr, size_t size) @system pure @nogc nothrow
+void* pureRealloc()(void* ptr, size_t size) @system pure @nogc nothrow
 {
-    const errnosave = fakePureErrno();
+    const errnosave = fakePureErrno;
     void* ret = fakePureRealloc(ptr, size);
-    fakePureErrno() = errnosave;
+    fakePureErrno = errnosave;
     return ret;
 }
 /// ditto
-void pureFree(void* ptr) @system pure @nogc nothrow
+void pureFree()(void* ptr) @system pure @nogc nothrow
 {
-    const errnosave = fakePureErrno();
+    const errnosave = fakePureErrno;
     fakePureFree(ptr);
-    fakePureErrno() = errnosave;
+    fakePureErrno = errnosave;
 }
 
 ///
@@ -895,7 +932,7 @@ void pureFree(void* ptr) @system pure @nogc nothrow
     // See also: https://issues.dlang.org/show_bug.cgi?id=17956
     void* z = pureMalloc(size_t.max & ~255); // won't affect `errno`
     assert(errno == fakePureErrno()); // errno shouldn't change
-  version(LDC)
+  version (LDC)
   {
     // LLVM's 'Combine redundant instructions' optimization pass
     // completely elides allocating `y` and `z`. Allocations with
@@ -910,7 +947,37 @@ void pureFree(void* ptr) @system pure @nogc nothrow
 
 // locally purified for internal use here only
 
-version (WebAssembly) {} else
+static import core.stdc.errno;
+static if (__traits(getOverloads, core.stdc.errno, "errno").length == 1
+    && __traits(getLinkage, core.stdc.errno.errno) == "C")
+{
+    extern(C) pragma(mangle, __traits(identifier, core.stdc.errno.errno))
+    private ref int fakePureErrno() @nogc nothrow pure @system;
+}
+else
+{
+    extern(C) private @nogc nothrow pure @system
+    {
+        pragma(mangle, __traits(identifier, core.stdc.errno.getErrno))
+        private int fakePureGetErrno();
+
+        pragma(mangle, __traits(identifier, core.stdc.errno.setErrno))
+        private int fakePureSetErrno(int);
+    }
+
+    private @property int fakePureErrno()() @nogc nothrow pure @system
+    {
+        return fakePureGetErrno();
+    }
+
+    private @property void fakePureErrno()(int newValue) @nogc nothrow pure @system
+    {
+        fakePureSetErrno(newValue);
+    }
+}
+
+version (D_BetterC) {}
+else // TODO: remove this function after Phobos no longer needs it.
 extern (C) private @system @nogc nothrow
 {
     ref int fakePureErrnoImpl()
@@ -922,8 +989,6 @@ extern (C) private @system @nogc nothrow
 
 extern (C) private pure @system @nogc nothrow
 {
-    pragma(mangle, "fakePureErrnoImpl") ref int fakePureErrno();
-
     pragma(mangle, "malloc") void* fakePureMalloc(size_t);
     pragma(mangle, "calloc") void* fakePureCalloc(size_t nmemb, size_t size);
     pragma(mangle, "realloc") void* fakePureRealloc(void* ptr, size_t size);
@@ -1030,7 +1095,7 @@ void __delete(T)(ref T x) @system
     }
     else static if (is(T : E2[], E2))
     {
-        GC.free(x.ptr);
+        GC.free(cast(void*) x.ptr);
         x = null;
     }
 }
@@ -1058,7 +1123,7 @@ unittest
     assert(GC.addrOf(cast(void*) b) == null);
     // but be careful, a still points to it
     assert(a !is null);
-    assert(GC.addrOf(cast(void*) a) !is null);
+    assert(GC.addrOf(cast(void*) a) == null); // but not a valid GC pointer
 }
 
 /// Deleting interfaces
@@ -1125,7 +1190,7 @@ unittest
     assert(GC.addrOf(b.ptr) == null);
     // but be careful, a still points to it
     assert(a !is null);
-    assert(GC.addrOf(a.ptr) !is null);
+    assert(GC.addrOf(a.ptr) == null); // but not a valid GC pointer
 }
 
 /// Deleting arrays of structs
@@ -1177,4 +1242,73 @@ unittest
     I* pi = &i; __delete(*pi);
     int* pint; __delete(pint);
     S* ps; __delete(ps);
+}
+
+// https://issues.dlang.org/show_bug.cgi?id=19092
+unittest
+{
+    const(int)[] x = [1, 2, 3];
+    assert(GC.addrOf(x.ptr) != null);
+    __delete(x);
+    assert(x is null);
+    assert(GC.addrOf(x.ptr) == null);
+
+    immutable(int)[] y = [1, 2, 3];
+    assert(GC.addrOf(y.ptr) != null);
+    __delete(y);
+    assert(y is null);
+    assert(GC.addrOf(y.ptr) == null);
+}
+
+// test realloc behaviour
+unittest
+{
+    static void set(int* p, size_t size)
+    {
+        foreach (i; 0 .. size)
+            *p++ = cast(int) i;
+    }
+    static void verify(int* p, size_t size)
+    {
+        foreach (i; 0 .. size)
+            assert(*p++ == i);
+    }
+    static void test(size_t memsize)
+    {
+        int* p = cast(int*) GC.malloc(memsize * int.sizeof);
+        assert(p);
+        set(p, memsize);
+        verify(p, memsize);
+
+        int* q = cast(int*) GC.realloc(p + 16, 2 * memsize * int.sizeof);
+        assert(q == null);
+
+        int* r = cast(int*) GC.realloc(p, 5 * memsize * int.sizeof);
+        verify(r, memsize);
+        set(r, 5 * memsize);
+
+        int* s = cast(int*) GC.realloc(r, 2 * memsize * int.sizeof);
+        verify(s, 2 * memsize);
+
+        assert(GC.realloc(s, 0) == null); // free
+        assert(GC.addrOf(p) == null);
+    }
+
+    test(16);
+    test(200);
+    test(800); // spans large and small pools
+    test(1200);
+    test(8000);
+
+    void* p = GC.malloc(100);
+    assert(GC.realloc(&p, 50) == null); // non-GC pointer
+}
+
+// test GC.profileStats
+unittest
+{
+    auto stats = GC.profileStats();
+    GC.collect();
+    auto nstats = GC.profileStats();
+    assert(nstats.numCollections > stats.numCollections);
 }

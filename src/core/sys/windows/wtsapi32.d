@@ -58,7 +58,7 @@ struct WTS_SERVER_INFOA {
 }
 alias WTS_SERVER_INFOA* PWTS_SERVER_INFOA;
 
-version(Unicode) {
+version (Unicode) {
     alias WTS_SERVER_INFOW  WTS_SERVER_INFO;
     alias PWTS_SERVER_INFOW PWTS_SERVER_INFO;
 } else {
@@ -80,7 +80,7 @@ struct WTS_SESSION_INFOA {
 }
 alias WTS_SESSION_INFOA* PWTS_SESSION_INFOA;
 
-version(Unicode) {
+version (Unicode) {
     alias WTS_SESSION_INFOW  WTS_SESSION_INFO;
     alias PWTS_SESSION_INFOW PWTS_SESSION_INFO;
 } else {
@@ -104,7 +104,7 @@ struct WTS_PROCESS_INFOA {
 }
 alias WTS_PROCESS_INFOA* PWTS_PROCESS_INFOA;
 
-version(Unicode) {
+version (Unicode) {
     alias WTS_PROCESS_INFOW  WTS_PROCESS_INFO;
     alias PWTS_PROCESS_INFOW PWTS_PROCESS_INFO;
 } else {
@@ -201,7 +201,7 @@ enum WTS_VIRTUAL_CLASS {
     WTSVirtualFileHandle
 }
 
-version(Unicode) {
+version (Unicode) {
     alias WTSEnumerateServersW WTSEnumerateServers;
     alias WTSOpenServerW WTSOpenServer;
     alias WTSEnumerateSessionsW WTSEnumerateSessions;
@@ -273,52 +273,52 @@ enum {
 
 static if (_WIN32_WINNT >= 0x600) {
     struct WTSCLIENTW {
-        WCHAR[CLIENTNAME_LENGTH + 1]      ClientName;
-        WCHAR[DOMAIN_LENGTH + 1]          Domain;
-        WCHAR[USERNAME_LENGTH + 1]        UserName;
-        WCHAR[MAX_PATH + 1]               WorkDirectory;
-        WCHAR[MAX_PATH + 1]               InitialProgram;
+        WCHAR[CLIENTNAME_LENGTH + 1]      ClientName = 0;
+        WCHAR[DOMAIN_LENGTH + 1]          Domain = 0;
+        WCHAR[USERNAME_LENGTH + 1]        UserName = 0;
+        WCHAR[MAX_PATH + 1]               WorkDirectory = 0;
+        WCHAR[MAX_PATH + 1]               InitialProgram = 0;
         BYTE                              EncryptionLevel;
         ULONG                             ClientAddressFamily;
         USHORT[CLIENTADDRESS_LENGTH + 1]  ClientAddress;
         USHORT                            HRes;
         USHORT                            VRes;
         USHORT                            ColorDepth;
-        WCHAR[MAX_PATH + 1]               ClientDirectory;
+        WCHAR[MAX_PATH + 1]               ClientDirectory = 0;
         ULONG                             ClientBuildNumber;
         ULONG                             ClientHardwareId;
         USHORT                            ClientProductId;
         USHORT                            OutBufCountHost;
         USHORT                            OutBufCountClient;
         USHORT                            OutBufLength;
-        WCHAR[MAX_PATH + 1]               DeviceId;
+        WCHAR[MAX_PATH + 1]               DeviceId = 0;
     }
     alias WTSCLIENTW* PWTSCLIENTW;
 
     struct WTSCLIENTA {
-        CHAR[CLIENTNAME_LENGTH + 1]       ClientName;
-        CHAR[DOMAIN_LENGTH + 1 ]          Domain;
-        CHAR[USERNAME_LENGTH + 1]         UserName;
-        CHAR[MAX_PATH + 1]                WorkDirectory;
-        CHAR[MAX_PATH + 1]                InitialProgram;
+        CHAR[CLIENTNAME_LENGTH + 1]       ClientName = 0;
+        CHAR[DOMAIN_LENGTH + 1 ]          Domain = 0;
+        CHAR[USERNAME_LENGTH + 1]         UserName = 0;
+        CHAR[MAX_PATH + 1]                WorkDirectory = 0;
+        CHAR[MAX_PATH + 1]                InitialProgram = 0;
         BYTE                              EncryptionLevel;
         ULONG                             ClientAddressFamily;
         USHORT[CLIENTADDRESS_LENGTH + 1]  ClientAddress;
         USHORT                            HRes;
         USHORT                            VRes;
         USHORT                            ColorDepth;
-        CHAR[MAX_PATH + 1]                ClientDirectory;
+        CHAR[MAX_PATH + 1]                ClientDirectory = 0;
         ULONG                             ClientBuildNumber;
         ULONG                             ClientHardwareId;
         USHORT                            ClientProductId;
         USHORT                            OutBufCountHost;
         USHORT                            OutBufCountClient;
         USHORT                            OutBufLength;
-        CHAR[MAX_PATH + 1]                DeviceId;
+        CHAR[MAX_PATH + 1]                DeviceId = 0;
     }
     alias WTSCLIENTA* PWTSCLIENTA;
 
-    version(Unicode) {
+    version (Unicode) {
         alias WTSCLIENTW  WTSCLIENT;
         alias PWTSCLIENTW PWTSCLIENT;
     } else {
@@ -335,9 +335,9 @@ static if (_WIN32_WINNT >= 0x600) {
         DWORD                        OutgoingFrames;
         DWORD                        IncomingCompressedBytes;
         DWORD                        OutgoingCompressedBytes;
-        WCHAR[WINSTATIONNAME_LENGTH] WinStationName;
-        WCHAR[DOMAIN_LENGTH]         Domain;
-        WCHAR[USERNAME_LENGTH+1]     UserName;
+        WCHAR[WINSTATIONNAME_LENGTH] WinStationName = 0;
+        WCHAR[DOMAIN_LENGTH]         Domain = 0;
+        WCHAR[USERNAME_LENGTH+1]     UserName = 0;
         LARGE_INTEGER                ConnectTime;
         LARGE_INTEGER                DisconnectTime;
         LARGE_INTEGER                LastInputTime;
@@ -355,9 +355,9 @@ static if (_WIN32_WINNT >= 0x600) {
         DWORD                       OutgoingFrames;
         DWORD                       IncomingCompressedBytes;
         DWORD                       OutgoingCompressedBytes;
-        CHAR[WINSTATIONNAME_LENGTH] WinStationName;
-        CHAR[DOMAIN_LENGTH]         Domain;
-        CHAR[USERNAME_LENGTH+1]     UserName;
+        CHAR[WINSTATIONNAME_LENGTH] WinStationName = 0;
+        CHAR[DOMAIN_LENGTH]         Domain = 0;
+        CHAR[USERNAME_LENGTH+1]     UserName = 0;
         LARGE_INTEGER               ConnectTime;
         LARGE_INTEGER               DisconnectTime;
         LARGE_INTEGER               LastInputTime;
@@ -366,7 +366,7 @@ static if (_WIN32_WINNT >= 0x600) {
     }
     alias WTSINFOA* PWTSINFOA;
 
-    version(Unicode) {
+    version (Unicode) {
         alias WTSINFOW  WTSINFO;
         alias PWTSINFOW PWTSINFO;
     } else {
@@ -409,7 +409,7 @@ static if (_WIN32_WINNT >= 0x600) {
             USHORT HotkeyModifiers
         );
 
-        version(Unicode) {
+        version (Unicode) {
             alias WTSStartRemoteControlSessionW WTSStartRemoteControlSession;
             alias WTSConnectSessionW WTSConnectSession;
         } else {

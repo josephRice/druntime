@@ -26,6 +26,22 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
+version (ARM)     version = ARM_Any;
+version (AArch64) version = ARM_Any;
+version (HPPA)    version = HPPA_Any;
+version (MIPS32)  version = MIPS_Any;
+version (MIPS64)  version = MIPS_Any;
+version (PPC)     version = PPC_Any;
+version (PPC64)   version = PPC_Any;
+version (RISCV32) version = RISCV_Any;
+version (RISCV64) version = RISCV_Any;
+version (S390)    version = IBMZ_Any;
+version (SPARC)   version = SPARC_Any;
+version (SPARC64) version = SPARC_Any;
+version (SystemZ) version = IBMZ_Any;
+version (X86)     version = X86_Any;
+version (X86_64)  version = X86_Any;
+
 extern (C):
 @trusted: // All functions here operate on floating point and integer values only.
 nothrow:
@@ -121,70 +137,56 @@ else version (CRuntime_UClibc)
 }
 else version (CRuntime_Glibc)
 {
-    version (X86)
+    version (X86_Any)
     {
         ///
         enum int FP_ILOGB0        = int.min;
         ///
         enum int FP_ILOGBNAN      = int.min;
     }
-    else version (X86_64)
-    {
-        ///
-        enum int FP_ILOGB0        = int.min;
-        ///
-        enum int FP_ILOGBNAN      = int.min;
-    }
-    else version (ARM)
+    else version (ARM_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
         ///
         enum int FP_ILOGBNAN      = int.max;
     }
-    else version (AArch64)
+    else version (HPPA_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
         ///
         enum int FP_ILOGBNAN      = int.max;
     }
-    else version (MIPS32)
+    else version (MIPS_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
         ///
         enum int FP_ILOGBNAN      = int.max;
     }
-    else version (MIPS64)
+    else version (PPC_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
         ///
         enum int FP_ILOGBNAN      = int.max;
     }
-    else version (PPC)
+    else version (RISCV_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
         ///
         enum int FP_ILOGBNAN      = int.max;
     }
-    else version (PPC64)
+    else version (SPARC_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
         ///
         enum int FP_ILOGBNAN      = int.max;
     }
-    else version (SPARC64)
-    {
-        ///
-        enum int FP_ILOGB0        = -int.max;
-        ///
-        enum int FP_ILOGBNAN      = int.max;
-    }
-    else version (SystemZ)
+    else version (IBMZ_Any)
     {
         ///
         enum int FP_ILOGB0        = -int.max;
@@ -211,7 +213,7 @@ enum int MATH_ERREXCEPT   = 2;
 ///
 enum int math_errhandling = MATH_ERRNO | MATH_ERREXCEPT;
 
-version( none )
+version (none)
 {
     //
     // these functions are all macros in C
@@ -278,7 +280,7 @@ version( none )
     pure int isunordered(real x, real y);
 }
 
-version( CRuntime_DigitalMars )
+version (CRuntime_DigitalMars)
 {
     enum
     {
@@ -377,9 +379,9 @@ version( CRuntime_DigitalMars )
     }
   }
 }
-else version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) only
+else version (CRuntime_Microsoft) // fully supported since MSVCRT 12 (VS 2013) only
 {
-  version( all ) // legacy stuff to be removed in the future
+  version (all) // legacy stuff to be removed in the future
   {
     enum
     {
@@ -401,7 +403,7 @@ else version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) 
     //deprecated("_chgsignf(x) is a non-standard MS extension. Please consider using -x instead.")
     pure float _chgsignf(float x);
 
-    version( Win64 ) // not available in 32-bit runtimes
+    version (Win64) // not available in 32-bit runtimes
     {
         //deprecated("Please use the standard C99 function isfinite() instead.")
         pure int _finitef(float x);
@@ -482,7 +484,7 @@ else version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) 
     pure int isinf()(real x)         { return fpclassify(x) == FP_INFINITE; }
 
     //int isnan(real-floating x);
-    version( none ) // requires MSVCRT 12+ (VS 2013)
+    version (none) // requires MSVCRT 12+ (VS 2013)
     {
         ///
         pure int isnan(float x)      { return fpclassify(x) == FP_NAN; }
@@ -494,7 +496,7 @@ else version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) 
     else // for backward compatibility with older runtimes
     {
         ///
-        pure int isnan(float x)      { version(Win64) return _isnanf(x); else return _isnan(cast(double) x); }
+        pure int isnan(float x)      { version (Win64) return _isnanf(x); else return _isnan(cast(double) x); }
         ///
         pure int isnan(double x)     { return _isnan(x); }
         ///
@@ -524,7 +526,7 @@ else version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) 
     }
   }
 }
-else version( CRuntime_Glibc )
+else version (CRuntime_Glibc)
 {
     enum
     {
@@ -646,7 +648,7 @@ else version( CRuntime_Glibc )
     }
   }
 }
-else version( CRuntime_Musl )
+else version (CRuntime_Musl)
 {
     enum
     {
@@ -778,7 +780,7 @@ else version( CRuntime_Musl )
     }
   }
 }
-else version( CRuntime_UClibc )
+else version (CRuntime_UClibc)
 {
     enum
     {
@@ -894,7 +896,7 @@ else version( CRuntime_UClibc )
     }
   }
 }
-else version( MinGW )
+else version (MinGW)
 {
     enum
     {
@@ -988,7 +990,7 @@ else version( MinGW )
     }
   }
 }
-else version( Darwin )
+else version (Darwin)
 {
     enum
     {
@@ -1107,7 +1109,7 @@ else version( Darwin )
     pure int signbit(real x)      { return __signbitl(x); }
   }
 }
-else version( FreeBSD )
+else version (FreeBSD)
 {
     enum
     {
@@ -1200,7 +1202,7 @@ else version( FreeBSD )
     pure int signbit(real x)         { return __signbit(x); }
   }
 }
-else version( OpenBSD )
+else version (OpenBSD)
 {
     enum
     {
@@ -1293,7 +1295,7 @@ else version( OpenBSD )
     pure int signbit(real x)         { return __signbit(x); }
   }
 }
-else version( NetBSD )
+else version (NetBSD)
 {
     enum
     {
@@ -1384,7 +1386,7 @@ else version( NetBSD )
     }
   }
 }
-else version( DragonFlyBSD )
+else version (DragonFlyBSD)
 {
     enum
     {
@@ -1448,7 +1450,7 @@ else version( DragonFlyBSD )
     pure int signbit(real x)         { return __signbitl(x); }
   }
 }
-else version( Solaris )
+else version (Solaris)
 {
     pure int __isnanf(float x);
     pure int __isnan(double x);
@@ -1470,7 +1472,7 @@ else version( Solaris )
     }
   }
 }
-else version( CRuntime_Bionic )
+else version (CRuntime_Bionic)
 {
     enum
     {
@@ -1620,7 +1622,7 @@ extern (D)
  * internally with reduced 64-bit precision.
  * This also enables relaxing real to 64-bit double.
  */
-version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) only
+version (CRuntime_Microsoft) // fully supported since MSVCRT 12 (VS 2013) only
 {
     ///
     double  acos(double x);
@@ -2038,7 +2040,7 @@ version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) only
 //         acoshl, asinhl, atanhl, coshl, sinhl, tanhl, cbrtl, powl, expl,
 //         expm1l, logl, log1pl, log10l, erfcl, erfl, lgammal, tgammal;
 //       but we can approximate.
-else version( FreeBSD )
+else version (FreeBSD)
 {
   version (none) // < 8-CURRENT
   {
@@ -2485,7 +2487,7 @@ else version( FreeBSD )
     ///
     pure float   fmaf(float x, float y, float z);
 }
-else version(NetBSD)
+else version (NetBSD)
 {
 
     ///
@@ -2687,20 +2689,20 @@ else version(NetBSD)
     /// NetBSD has no logl. It is just alias log(double)
     real    logl(real x)
     {
-        if(x<0) return real.nan;
-        if(x==0) return -real.infinity;
-        if(isnan(x) || isinf(x)) return x;
+        if (x<0) return real.nan;
+        if (x==0) return -real.infinity;
+        if (isnan(x) || isinf(x)) return x;
         real rs = 0;
-        if(x>double.max)
+        if (x>double.max)
         {
             immutable MAX = log(double.max);
-            for(; x>double.max; x /= double.max)
+            for (; x>double.max; x /= double.max)
                 rs += MAX;
         }
-        else if(x<double.min_normal)
+        else if (x<double.min_normal)
         {
             immutable MIN = log(double.min_normal);
-            for(; x<double.min_normal; x /= double.min_normal)
+            for (; x<double.min_normal; x /= double.min_normal)
                 rs += MIN;
         }
         rs += log(x);
@@ -2714,21 +2716,21 @@ else version(NetBSD)
     ///NetBSD has no log10l. It is just alias log(double)
     real    log10l(real x)
     {
-        if(x<0) return real.nan;
-        if(x==0) return -real.infinity;
-        if(isnan(x) || isinf(x)) return x;
+        if (x<0) return real.nan;
+        if (x==0) return -real.infinity;
+        if (isnan(x) || isinf(x)) return x;
 
         real rs = 0;
-        if(x>double.max)
+        if (x>double.max)
         {
             immutable MAX = log10(double.max);
-            for(; x>double.max; x /= double.max)
+            for (; x>double.max; x /= double.max)
                 rs += MAX;
         }
-        else if(x<double.min_normal)
+        else if (x<double.min_normal)
         {
             immutable MIN = log10(double.min_normal);
-            for(; x<double.min_normal; x /= double.min_normal)
+            for (; x<double.min_normal; x /= double.min_normal)
                 rs += MIN;
         }
         rs += log10(x);
@@ -2930,7 +2932,7 @@ else version(NetBSD)
     ///
     pure float   fmaf(float x, float y, float z);
 }
-else version( OpenBSD )
+else version (OpenBSD)
 {
     ///
     real    acosl(real x);
@@ -3335,7 +3337,7 @@ else version( OpenBSD )
     ///
     pure float   fmaf(float x, float y, float z);
 }
-else version(DragonFlyBSD)
+else version (DragonFlyBSD)
 {
     /* double */
     double acos(double x);
@@ -3579,7 +3581,7 @@ else version(DragonFlyBSD)
 
     pure real fmal(real x, real, real);
 }
-else version(CRuntime_Bionic)
+else version (CRuntime_Bionic)
 {
     ///
     double  acos(double x);
@@ -4583,7 +4585,7 @@ else
 
     ///
     pure double  fabs(double x);
-    version( CRuntime_Microsoft )
+    version (CRuntime_Microsoft)
     {
     }
     else

@@ -25,8 +25,8 @@ struct WSADATA
 {
     ushort wVersion;
     ushort wHighVersion;
-    char[WSADESCRIPTION_LEN + 1] szDescription;
-    char[WSASYS_STATUS_LEN + 1] szSystemStatus;
+    char[WSADESCRIPTION_LEN + 1] szDescription = 0;
+    char[WSASYS_STATUS_LEN + 1] szSystemStatus = 0;
     ushort iMaxSockets;
     ushort iMaxUdpDg;
     char* lpVendorInfo;
@@ -372,15 +372,15 @@ void FD_CLR(SOCKET fd, fd_set* set) pure @nogc
     SOCKET* start = set.fd_array.ptr;
     SOCKET* stop = start + c;
 
-    for(; start != stop; start++)
+    for (; start != stop; start++)
     {
-        if(*start == fd)
+        if (*start == fd)
             goto found;
     }
     return; //not found
 
     found:
-    for(++start; start != stop; start++)
+    for (++start; start != stop; start++)
     {
         *(start - 1) = *start;
     }
@@ -395,9 +395,9 @@ int FD_ISSET(SOCKET fd, const(fd_set)* set) pure @nogc
 const(SOCKET)* start = set.fd_array.ptr;
 const(SOCKET)* stop = start + set.fd_count;
 
-    for(; start != stop; start++)
+    for (; start != stop; start++)
     {
-        if(*start == fd)
+        if (*start == fd)
             return true;
     }
     return false;
@@ -643,9 +643,9 @@ alias SOCKADDR* PSOCKADDR, LPSOCKADDR;
 struct sockaddr_storage
 {
     short     ss_family;
-    char[6]   __ss_pad1;
+    char[6]   __ss_pad1 = void;
     long      __ss_align;
-    char[112] __ss_pad2;
+    char[112] __ss_pad2 = void;
 }
 alias sockaddr_storage SOCKADDR_STORAGE;
 alias SOCKADDR_STORAGE* PSOCKADDR_STORAGE;

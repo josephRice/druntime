@@ -26,7 +26,7 @@ class TypeInfo_h : TypeInfo
 
     override size_t getHash(scope const void* p)
     {
-        return *cast(ubyte *)p;
+        return *cast(const ubyte *)p;
     }
 
     override bool equals(in void* p1, in void* p2)
@@ -57,6 +57,8 @@ class TypeInfo_h : TypeInfo
         *cast(ubyte *)p1 = *cast(ubyte *)p2;
         *cast(ubyte *)p2 = t;
     }
+
+    override @property immutable(void)* rtInfo() nothrow pure const @safe { return rtinfoNoPointers; }
 }
 
 class TypeInfo_b : TypeInfo_h

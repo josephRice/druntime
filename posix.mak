@@ -77,7 +77,7 @@ ifeq (solaris,$(OS))
 endif
 
 # Set DFLAGS
-UDFLAGS:=-conf= -Isrc -Iimport -w -dip1000 $(MODEL_FLAG) $(PIC) $(OPTIONAL_COVERAGE)
+UDFLAGS:=-conf= -Isrc -Iimport -w -dip1000 -preview=fieldwise $(MODEL_FLAG) $(PIC) $(OPTIONAL_COVERAGE)
 ifeq ($(BUILD),debug)
 	UDFLAGS += -g -debug
 	DFLAGS:=$(UDFLAGS)
@@ -159,6 +159,15 @@ $(DOCDIR)/core_stdcpp_%.html : src/core/stdcpp/%.d $(DMD)
 	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
 
 $(DOCDIR)/core_sync_%.html : src/core/sync/%.d $(DMD)
+	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
+
+$(DOCDIR)/core_sys_darwin_%.html : src/core/sys/darwin/%.d $(DMD)
+	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
+
+$(DOCDIR)/core_sys_darwin_mach_%.html : src/core/sys/darwin/mach/%.d $(DMD)
+	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
+
+$(DOCDIR)/core_sys_darwin_netinet_%.html : src/core/sys/darwin/netinet/%.d $(DMD)
 	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
 
 $(DOCDIR)/rt_%.html : src/rt/%.d $(DMD)
@@ -243,7 +252,8 @@ UT_MODULES:=$(patsubst src/%.d,$(ROOT)/unittest/%,$(SRCS))
 HAS_ADDITIONAL_TESTS:=$(shell test -d test && echo 1)
 ifeq ($(HAS_ADDITIONAL_TESTS),1)
 	ADDITIONAL_TESTS:=test/init_fini test/exceptions test/coverage test/profile test/cycles test/allocations test/typeinfo \
-	    test/thread test/unittest test/imports test/betterc
+	    test/aa test/gc test/hash \
+	    test/thread test/unittest test/imports test/betterc test/stdcpp test/config
 	ADDITIONAL_TESTS+=$(if $(SHARED),test/shared,)
 endif
 
@@ -370,10 +380,19 @@ style_lint:
 	@echo "Check for trailing whitespace"
 	$(GREP) -nr '[[:blank:]]$$' $(MANIFEST) ; test $$? -eq 1
 
+	@echo "Enforce whitespace before opening parenthesis"
+	$(GREP) -nrE "\<(for|foreach|foreach_reverse|if|while|switch|catch|version)\(" $$(find src -name '*.d') ; test $$? -eq 1
+
+	@echo "Enforce no whitespace after opening parenthesis"
+	$(GREP) -nrE "\<(version) \( " $$(find src -name '*.d') ; test $$? -eq 1
+
 .PHONY : auto-tester-build
 auto-tester-build: target checkwhitespace
 
 .PHONY : auto-tester-test
 auto-tester-test: unittest benchmark-compile-only
+
+.PHONY : buildkite-test
+buildkite-test: unittest benchmark-compile-only
 
 .DELETE_ON_ERROR: # GNU Make directive (delete output files on error)
