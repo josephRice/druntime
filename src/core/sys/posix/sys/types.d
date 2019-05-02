@@ -28,7 +28,6 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
-version (Posix):
 extern (C):
 
 //
@@ -295,6 +294,23 @@ else version (CRuntime_UClibc)
     alias slong_t   time_t;
     alias uint      uid_t;
 }
+else version (WebAssembly)
+{
+    alias long      blksize_t;
+    alias ulong     nlink_t;
+    alias long      dev_t;
+    alias long      blkcnt_t;
+    alias ulong     ino_t;
+    alias long      off_t;
+    alias long      _Addr;
+    alias int       pid_t;
+    alias uint      uid_t;
+    alias uint      gid_t;
+    alias long      time_t;
+    alias long      clock_t;
+    alias ulong     pthread_t;
+    alias _Addr     ssize_t;
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -434,6 +450,18 @@ else version (CRuntime_UClibc)
     alias ulong_t   fsblkcnt_t;
     alias ulong_t   fsfilcnt_t;
   }
+    alias slong_t   clock_t;
+    alias uint      id_t;
+    alias int       key_t;
+    alias slong_t   suseconds_t;
+    alias uint      useconds_t;
+}
+else version (WebAssembly)
+{
+
+    alias ulong_t   fsblkcnt_t;
+    alias ulong_t   fsfilcnt_t;
+
     alias slong_t   clock_t;
     alias uint      id_t;
     alias int       key_t;
@@ -1233,6 +1261,21 @@ else version (CRuntime_UClibc)
 
     alias c_ulong pthread_t;
 }
+else version (WebAssembly)
+{
+    alias int lwpid_t;
+
+    alias void* pthread_attr_t;
+    alias void* pthread_cond_t;
+    alias void* pthread_condattr_t;
+    alias void* pthread_key_t;
+    alias void* pthread_mutex_t;
+    alias void* pthread_mutexattr_t;
+    alias void* pthread_once_t;
+    alias void* pthread_rwlock_t;
+    alias void* pthread_rwlockattr_t;
+    alias void* pthread_t;
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -1315,6 +1358,9 @@ else version (CRuntime_UClibc)
         int __align;
     }
 }
+else version (WebAssembly)
+{
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -1350,6 +1396,9 @@ else version (Solaris)
 else version (CRuntime_UClibc)
 {
     alias int pthread_spinlock_t; // volatile
+}
+else version (WebAssembly)
+{
 }
 
 //

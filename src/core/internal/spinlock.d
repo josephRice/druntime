@@ -8,7 +8,7 @@
  */
 module core.internal.spinlock;
 
-version (WebAssembly) {} else:
+
 
 import core.atomic;
 

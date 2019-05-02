@@ -14,7 +14,7 @@
 
 module core.stdc.complex;
 
-version (WebAssembly) {} else:
+
 
 extern (C):
 @trusted: // All of these operate on floating point values only.

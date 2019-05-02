@@ -14,7 +14,7 @@
 
 module core.stdc.fenv;
 
-version (WebAssembly) {} else:
+
 
 version (OSX)
     version = Darwin;

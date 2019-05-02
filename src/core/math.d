@@ -77,7 +77,7 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  */
 version (LDC)
 {
-    version (WebAssembly) {} else:
+
     public import core.stdc.math : rndtol = llroundl;
 }
 else

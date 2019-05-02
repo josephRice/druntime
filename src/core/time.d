@@ -77,7 +77,7 @@
  +/
 module core.time;
 
-version (WebAssembly) {} else:
+
 
 import core.exception;
 import core.stdc.time;

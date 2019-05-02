@@ -17,7 +17,6 @@
 
 module core.stdc.assert_;
 
-version (WebAssembly) {} else:
 
 extern (C):
 @trusted:

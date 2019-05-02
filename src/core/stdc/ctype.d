@@ -14,7 +14,7 @@
 
 module core.stdc.ctype;
 
-version (WebAssembly) {} else:
+
 
 extern (C):
 @trusted: // All of these operate on integers only.

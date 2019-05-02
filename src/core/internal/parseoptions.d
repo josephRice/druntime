@@ -9,7 +9,7 @@
 
 module core.internal.parseoptions;
 
-version (WebAssembly) {} else:
+
 
 import core.stdc.stdlib;
 import core.stdc.stdio;

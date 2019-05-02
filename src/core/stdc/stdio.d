@@ -15,8 +15,6 @@
 
 module core.stdc.stdio;
 
-version (WebAssembly) {} else:
-
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -32,22 +30,25 @@ private
     import core.stdc.stdarg; // for va_list
     import core.stdc.stdint : intptr_t;
 
-  version (FreeBSD)
-  {
-    import core.sys.posix.sys.types;
-  }
-  else version (OpenBSD)
-  {
-    import core.sys.posix.sys.types;
-  }
-  version (NetBSD)
-  {
-    import core.sys.posix.sys.types;
-  }
-  version (DragonFlyBSD)
-  {
-    import core.sys.posix.sys.types;
-  }
+    version (FreeBSD)
+    {
+        import core.sys.posix.sys.types;
+    }
+    else version (OpenBSD)
+    {
+        import core.sys.posix.sys.types;
+    }
+    else version (NetBSD)
+    {
+        import core.sys.posix.sys.types;
+    }
+    else version (DragonFlyBSD)
+    {
+        import core.sys.posix.sys.types;
+    }
+    else version (WebAssembly) {
+        import core.sys.posix.sys.types;
+    }
 }
 
 extern (C):
@@ -347,6 +348,30 @@ else version (CRuntime_UClibc)
         TMP_MAX      = 238328,
         ///
         L_tmpnam     = 20
+    }
+}
+else version (WebAssembly)
+{
+    enum
+    {
+        ///
+        BUFSIZ       = 1024,
+        ///
+        EOF          = -1,
+        ///
+        FOPEN_MAX    = 20,
+        ///
+        FILENAME_MAX = 1024,
+        ///
+        TMP_MAX      = 308915776,
+        ///
+        L_tmpnam     = 1024
+    }
+
+    struct __sbuf
+    {
+        ubyte *_base;
+        int _size;
     }
 }
 else
@@ -781,6 +806,20 @@ else version (CRuntime_UClibc)
     ///
     alias shared(__STDIO_FILE_STRUCT) FILE;
 }
+else version (WebAssembly)
+{
+    ///
+    alias long fpos_t;
+
+    ///
+    struct _iobuf
+    {
+        void* undefined;
+    }
+
+    ///
+    alias shared(_iobuf) FILE;
+}
 else
 {
     static assert( false, "Unsupported platform" );
@@ -1095,6 +1134,25 @@ else version (CRuntime_Musl)
     }
 }
 else version (CRuntime_UClibc)
+{
+    enum
+    {
+        ///
+        _IOFBF = 0,
+        ///
+        _IOLBF = 1,
+        ///
+        _IONBF = 2,
+    }
+
+    ///
+    extern shared FILE* stdin;
+    ///
+    extern shared FILE* stdout;
+    ///
+    extern shared FILE* stderr;
+}
+else version (WebAssembly)
 {
     enum
     {
@@ -1694,6 +1752,30 @@ else version (CRuntime_UClibc)
     int  snprintf(scope char* s, size_t n, scope const char* format, ...);
     ///
     int  vsnprintf(scope char* s, size_t n, scope const char* format, va_list arg);
+}
+else version (WebAssembly)
+{
+    import core.sys.posix.sys.types : off_t;
+    ///
+    int fseeko(FILE *, off_t, int);
+    @trusted
+    {
+        ///
+        void rewind(FILE* stream);
+        ///
+        pure void clearerr(FILE* stream);
+        ///
+        pure int  feof(FILE* stream);
+        ///
+        pure int  ferror(FILE* stream);
+        ///
+        int  fileno(FILE *);
+    }
+
+    ///
+    int snprintf(scope char* s, size_t n, scope const char* format, ...);
+    ///
+    int vsnprintf(scope char* s, size_t n, scope const char* format, va_list arg);
 }
 else
 {
