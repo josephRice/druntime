@@ -17,6 +17,10 @@ SRCS=\
 	src\core\time.d \
 	src\core\vararg.d \
 	\
+	src\core\gc\config.d \
+	src\core\gc\gcinterface.d \
+	src\core\gc\registry.d \
+	\
 	src\core\internal\abort.d \
 	src\core\internal\arrayop.d \
 	src\core\internal\convert.d \
@@ -27,6 +31,7 @@ SRCS=\
 	src\core\internal\string.d \
 	src\core\internal\traits.d \
 	src\core\internal\utf.d \
+	src\core\internal\lifetime.d \
 	\
 	src\core\stdc\assert_.d \
 	src\core\stdc\complex.d \
@@ -63,14 +68,18 @@ SRCS=\
 	src\core\sync\condition.d \
 	src\core\sync\config.d \
 	src\core\sync\exception.d \
+	src\core\sync\event.d \
 	src\core\sync\mutex.d \
 	src\core\sync\rwmutex.d \
 	src\core\sync\semaphore.d \
+	\
+	src\core\sys\bionic\string.d \
 	\
 	src\core\sys\darwin\crt_externs.d \
 	src\core\sys\darwin\dlfcn.d \
 	src\core\sys\darwin\execinfo.d \
 	src\core\sys\darwin\pthread.d \
+	src\core\sys\darwin\string.d \
 	src\core\sys\darwin\mach\dyld.d \
 	src\core\sys\darwin\mach\getsect.d \
 	src\core\sys\darwin\mach\kern_return.d \
@@ -88,6 +97,7 @@ SRCS=\
 	src\core\sys\freebsd\execinfo.d \
 	src\core\sys\freebsd\netinet\in_.d \
 	src\core\sys\freebsd\pthread_np.d \
+	src\core\sys\freebsd\string.d \
 	src\core\sys\freebsd\sys\_bitset.d \
 	src\core\sys\freebsd\sys\_cpuset.d \
 	src\core\sys\freebsd\sys\cdefs.d \
@@ -106,6 +116,7 @@ SRCS=\
 	src\core\sys\dragonflybsd\execinfo.d \
 	src\core\sys\dragonflybsd\netinet\in_.d \
 	src\core\sys\dragonflybsd\pthread_np.d \
+	src\core\sys\dragonflybsd\string.d \
 	src\core\sys\dragonflybsd\sys\_bitset.d \
 	src\core\sys\dragonflybsd\sys\_cpuset.d \
 	src\core\sys\dragonflybsd\sys\cdefs.d \
@@ -128,6 +139,7 @@ SRCS=\
 	src\core\sys\linux\ifaddrs.d \
 	src\core\sys\linux\link.d \
 	src\core\sys\linux\sched.d \
+	src\core\sys\linux\string.d \
 	src\core\sys\linux\termios.d \
 	src\core\sys\linux\time.d \
 	src\core\sys\linux\timerfd.d \
@@ -150,7 +162,11 @@ SRCS=\
 	src\core\sys\linux\sys\time.d \
 	src\core\sys\linux\sys\prctl.d \
 	\
+	src\core\sys\netbsd\sys\featuretest.d \
+	src\core\sys\netbsd\string.d \
+	\
 	src\core\sys\openbsd\dlfcn.d \
+	src\core\sys\openbsd\string.d \
 	\
 	src\core\sys\posix\arpa\inet.d \
 	src\core\sys\posix\aio.d \
@@ -388,13 +404,10 @@ SRCS=\
 	src\core\sys\windows\wtypes.d \
 	\
 	src\gc\bits.d \
-	src\gc\config.d \
-	src\gc\gcinterface.d \
 	src\gc\impl\conservative\gc.d \
 	src\gc\os.d \
 	src\gc\pooltable.d \
 	src\gc\proxy.d \
-	src\gc\registry.d \
 	src\gc\impl\manual\gc.d \
 	src\gc\impl\proto\gc.d \
 	\
@@ -404,7 +417,6 @@ SRCS=\
 	src\rt\adi.d \
 	src\rt\alloca.d \
 	src\rt\arrayassign.d \
-	src\rt\arraycast.d \
 	src\rt\arraycat.d \
 	src\rt\cast_.d \
 	src\rt\cmath2.d \
@@ -424,7 +436,6 @@ SRCS=\
 	src\rt\memset.d \
 	src\rt\minfo.d \
 	src\rt\monitor_.d \
-	src\rt\obj.d \
 	src\rt\profilegc.d \
 	src\rt\qsort.d \
 	src\rt\sections.d \
@@ -447,6 +458,7 @@ SRCS=\
 	src\rt\util\array.d \
 	src\rt\util\random.d \
 	src\rt\util\typeinfo.d \
+	src\rt\util\utility.d \
 	src\rt\util\container\array.d \
 	src\rt\util\container\common.d \
 	src\rt\util\container\hashtab.d \

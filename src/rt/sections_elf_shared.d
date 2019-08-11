@@ -72,18 +72,7 @@ import rt.dmain2;
 import rt.minfo;
 import rt.util.container.array;
 import rt.util.container.hashtab;
-
-/****
- * Asserts the specified condition, independent from -release, by abort()ing.
- * Regular assertions throw an AssertError and thus require an initialized
- * GC, which isn't the case (yet or anymore) for the startup/shutdown code in
- * this module (called by CRT ctors/dtors etc.).
- */
-private void safeAssert(bool condition, scope string msg, size_t line = __LINE__) @nogc nothrow @safe
-{
-    import core.internal.abort;
-    condition || abort(msg, __FILE__, line);
-}
+import rt.util.utility : safeAssert;
 
 alias DSO SectionGroup;
 struct DSO
@@ -169,7 +158,9 @@ private:
         }
         else static if (SharedDarwin)
         {
-            return getTLSRange(_getTLSAnchor());
+            auto range = getTLSRange(_getTLSAnchor());
+            safeAssert(range !is null, "Could not determine TLS range.");
+            return range;
         }
         else static assert(0, "unimplemented");
     }
@@ -215,7 +206,7 @@ version (Shared)
      */
     Array!(ThreadDSO)* initTLSRanges() @nogc nothrow
     {
-        return &_loadedDSOs;
+        return &_loadedDSOs();
     }
 
     void finiTLSRanges(Array!(ThreadDSO)* tdsos) @nogc nothrow
@@ -306,18 +297,12 @@ else
      */
     Array!(void[])* initTLSRanges() nothrow @nogc
     {
-        if (!_tlsRanges)
-        {
-            _tlsRanges = cast(Array!(void[])*)calloc(1, Array!(void[]).sizeof);
-            _tlsRanges || assert(0, "Could not allocate TLS range storage");
-        }
-        return _tlsRanges;
+        return &_tlsRanges();
     }
 
     void finiTLSRanges(Array!(void[])* rngs) nothrow @nogc
     {
         rngs.reset();
-        .free(rngs);
     }
 
     void scanTLSRanges(Array!(void[])* rngs, scope ScanDG dg) nothrow
@@ -363,7 +348,8 @@ version (Shared)
             _tlsRange = _pdso.tlsRange();
         }
     }
-    Array!(ThreadDSO) _loadedDSOs;
+    @property ref Array!(ThreadDSO) _loadedDSOs() @nogc nothrow { static Array!(ThreadDSO) x; return x; }
+    //Array!(ThreadDSO) _loadedDSOs;
 
     /*
      * Set to true during rt_loadLibrary/rt_unloadLibrary calls.
@@ -375,7 +361,8 @@ version (Shared)
      * to the corresponding DSO*, protected by a mutex.
      */
     __gshared pthread_mutex_t _handleToDSOMutex;
-    __gshared HashTab!(void*, DSO*) _handleToDSO;
+    @property ref HashTab!(void*, DSO*) _handleToDSO() @nogc nothrow { __gshared HashTab!(void*, DSO*) x; return x; }
+    //__gshared HashTab!(void*, DSO*) _handleToDSO;
 
     static if (SharedELF)
     {
@@ -392,13 +379,15 @@ else
      * Static DSOs loaded by the runtime linker. This includes the
      * executable. These can't be unloaded.
      */
-    __gshared Array!(DSO*) _loadedDSOs;
+    @property ref Array!(DSO*) _loadedDSOs() @nogc nothrow { __gshared Array!(DSO*) x; return x; }
+    //__gshared Array!(DSO*) _loadedDSOs;
 
     /*
      * Thread local array that contains TLS memory ranges for each
      * library initialized in this thread.
      */
-    Array!(void[])* _tlsRanges;
+    @property ref Array!(void[]) _tlsRanges() @nogc nothrow { static Array!(void[]) x; return x; }
+    //Array!(void[]) _tlsRanges;
 
     enum _rtLoading = false;
 }
@@ -505,7 +494,7 @@ extern(C) void _d_dso_registry(void* arg)
             foreach (p; _loadedDSOs)
                 safeAssert(p !is pdso, "DSO already registered.");
             _loadedDSOs.insertBack(pdso);
-            initTLSRanges().insertBack(pdso.tlsRange());
+            _tlsRanges.insertBack(pdso.tlsRange());
         }
 
         // don't initialize modules before rt_init was called (see Bugzilla 11378)
@@ -1034,10 +1023,8 @@ struct tls_index
     }
 }
 
-version (OSX)
+static if (SharedDarwin)
 {
-    extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*) nothrow @nogc;
-
     version (LDC)
     {
         private align(16) ubyte dummyTlsSymbol = 42;
@@ -1046,14 +1033,10 @@ version (OSX)
         // for https://github.com/ldc-developers/ldc/issues/1252
     }
 
-    void[] getTLSRange(void *tlsSymbol) nothrow @nogc
-    {
-        void* start = null;
-        size_t size = 0;
-        _d_dyld_getTLSRange(tlsSymbol, &start, &size);
-        assert(start && size, "Could not determine TLS range.");
-        return start[0 .. size];
-    }
+    version (X86_64)
+        import rt.sections_osx_x86_64 : getTLSRange;
+    else
+        static assert(0, "Not implemented for this architecture");
 }
 else
 {

@@ -77,7 +77,7 @@ ifeq (solaris,$(OS))
 endif
 
 # Set DFLAGS
-UDFLAGS:=-conf= -Isrc -Iimport -w -dip1000 -preview=fieldwise $(MODEL_FLAG) $(PIC) $(OPTIONAL_COVERAGE)
+UDFLAGS:=-conf= -Isrc -Iimport -w -de -dip1000 -preview=fieldwise $(MODEL_FLAG) $(PIC) $(OPTIONAL_COVERAGE)
 ifeq ($(BUILD),debug)
 	UDFLAGS += -g -debug
 	DFLAGS:=$(UDFLAGS)
@@ -125,12 +125,6 @@ SRCS:=$(subst \,/,$(SRCS))
 
 OBJS= $(ROOT)/errno_c.o $(ROOT)/threadasm.o
 
-ifeq ($(OS),osx)
-ifeq ($(MODEL), 64)
-	OBJS+=$(ROOT)/osx_tls.o
-endif
-endif
-
 # use timelimit to avoid deadlocks if available
 TIMELIMIT:=$(if $(shell which timelimit 2>/dev/null || true),timelimit -t 10 ,)
 
@@ -150,6 +144,9 @@ $(DOCDIR)/object.html : src/object.d $(DMD)
 	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
 
 $(DOCDIR)/core_%.html : src/core/%.d $(DMD)
+	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
+
+$(DOCDIR)/core_gc_%.html : src/core/gc/%.d $(DMD)
 	$(DMD) $(DDOCFLAGS) -Df$@ project.ddoc $(DOCFMT) $<
 
 $(DOCDIR)/core_stdc_%.html : src/core/stdc/%.d $(DMD)
@@ -235,7 +232,7 @@ $(DRUNTIMESO) $(DRUNTIMESOLIB) dll: DFLAGS+=-version=Shared -fPIC
 dll: $(DRUNTIMESOLIB)
 
 $(DRUNTIMESO): $(OBJS) $(SRCS) $(DMD)
-	$(DMD) -shared -debuglib= -defaultlib= -of$(DRUNTIMESO) $(DFLAGS) $(SRCS) $(OBJS) $(LINKDL)
+	$(DMD) -shared -debuglib= -defaultlib= -of$(DRUNTIMESO) $(DFLAGS) $(SRCS) $(OBJS) $(LINKDL) -L-lpthread -L-lm
 
 $(DRUNTIMESOLIB): $(OBJS) $(SRCS) $(DMD)
 	$(DMD) -c -fPIC -of$(DRUNTIMESOOBJ) $(DFLAGS) $(SRCS)
@@ -252,7 +249,7 @@ UT_MODULES:=$(patsubst src/%.d,$(ROOT)/unittest/%,$(SRCS))
 HAS_ADDITIONAL_TESTS:=$(shell test -d test && echo 1)
 ifeq ($(HAS_ADDITIONAL_TESTS),1)
 	ADDITIONAL_TESTS:=test/init_fini test/exceptions test/coverage test/profile test/cycles test/allocations test/typeinfo \
-	    test/aa test/gc test/hash \
+	    test/aa test/cpuid test/gc test/hash \
 	    test/thread test/unittest test/imports test/betterc test/stdcpp test/config
 	ADDITIONAL_TESTS+=$(if $(SHARED),test/shared,)
 endif
@@ -286,7 +283,7 @@ $(addprefix $(ROOT)/unittest/,$(DISABLED_TESTS)) :
 ifeq (,$(SHARED))
 
 $(ROOT)/unittest/test_runner: $(OBJS) $(SRCS) src/test_runner.d $(DMD)
-	$(DMD) $(UDFLAGS) -unittest -of$@ src/test_runner.d $(SRCS) $(OBJS) -debuglib= -defaultlib=
+	$(DMD) $(UDFLAGS) -unittest -of$@ src/test_runner.d $(SRCS) $(OBJS) -debuglib= -defaultlib= -L-lpthread -L-lm
 
 else
 
@@ -294,10 +291,10 @@ UT_DRUNTIME:=$(ROOT)/unittest/libdruntime-ut$(DOTDLL)
 
 $(UT_DRUNTIME): UDFLAGS+=-version=Shared -fPIC
 $(UT_DRUNTIME): $(OBJS) $(SRCS) $(DMD)
-	$(DMD) $(UDFLAGS) -shared -unittest -of$@ $(SRCS) $(OBJS) $(LINKDL) -debuglib= -defaultlib=
+	$(DMD) $(UDFLAGS) -shared -unittest -of$@ $(SRCS) $(OBJS) $(LINKDL) -debuglib= -defaultlib= -L-lpthread -L-lm
 
 $(ROOT)/unittest/test_runner: $(UT_DRUNTIME) src/test_runner.d $(DMD)
-	$(DMD) $(UDFLAGS) -of$@ src/test_runner.d -L$(UT_DRUNTIME) -debuglib= -defaultlib=
+	$(DMD) $(UDFLAGS) -of$@ src/test_runner.d -L$(UT_DRUNTIME) -debuglib= -defaultlib= -L-lpthread -L-lm
 
 endif
 
@@ -387,10 +384,20 @@ style_lint:
 	$(GREP) -nrE "\<(version) \( " $$(find src -name '*.d') ; test $$? -eq 1
 
 .PHONY : auto-tester-build
+ifneq (,$(findstring Darwin_64_32, $(PWD)))
+auto-tester-build:
+	echo "Darwin_64_32_disabled"
+else
 auto-tester-build: target checkwhitespace
+endif
 
 .PHONY : auto-tester-test
+ifneq (,$(findstring Darwin_64_32, $(PWD)))
+auto-tester-test:
+	echo "Darwin_64_32_disabled"
+else
 auto-tester-test: unittest benchmark-compile-only
+endif
 
 .PHONY : buildkite-test
 buildkite-test: unittest benchmark-compile-only

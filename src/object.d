@@ -371,6 +371,22 @@ if (!__traits(isScalar, T1) && !__traits(isScalar, T2))
     assert(__cmp([c2, c2], [c2, c1]) > 0);
 }
 
+@safe unittest
+{
+    auto a = "hello"c;
+
+    assert(a >  "hel");
+    assert(a >= "hel");
+    assert(a <  "helloo");
+    assert(a <= "helloo");
+    assert(a >  "betty");
+    assert(a >= "betty");
+    assert(a == "hello");
+    assert(a <= "hello");
+    assert(a >= "hello");
+    assert(a <  "я");
+}
+
 // `lhs == rhs` lowers to `__equals(lhs, rhs)` for dynamic arrays
 bool __equals(T1, T2)(T1[] lhs, T2[] rhs)
 {
@@ -485,6 +501,20 @@ bool __equals(T1, T2)(T1[] lhs, T2[] rhs)
 {
     assert(__equals([], []));
     assert(!__equals([1, 2], [1, 2, 3]));
+}
+
+@safe unittest
+{
+    auto a = "hello"c;
+
+    assert(a != "hel");
+    assert(a != "helloo");
+    assert(a != "betty");
+    assert(a == "hello");
+    assert(a != "hxxxx");
+
+    float[] fa = [float.nan];
+    assert(fa != fa);
 }
 
 @safe unittest
@@ -638,7 +668,8 @@ void destroy(bool initialize = true, T)(T obj) if (is(T == class))
 {
     static if (__traits(getLinkage, T) == "C++")
     {
-        obj.__xdtor();
+        static if (__traits(hasMember, T, "__xdtor"))
+            obj.__xdtor();
 
         static if (initialize)
         {
@@ -741,6 +772,19 @@ void destroy(bool initialize = true, T)(T obj) if (is(T == interface))
     assert(i == 1);           // `i` was not initialized
     destroy(i);
     assert(i == 0);           // `i` is back to its initial state `0`
+}
+
+@system unittest
+{
+    extern(C++)
+    static class C
+    {
+        void* ptr;
+        this() {}
+    }
+
+    destroy!false(new C());
+    destroy!true(new C());
 }
 
 @system unittest
@@ -877,6 +921,21 @@ nothrow @safe @nogc unittest
     }
 }
 
+nothrow unittest
+{
+    // Bugzilla 20049: Test to ensure proper behavior of `nothrow` destructors
+    class C
+    {
+        static int dtorCount = 0;
+        this() nothrow {}
+        ~this() nothrow { dtorCount++; }
+    }
+
+    auto c = new C;
+    destroy(c);
+    assert(C.dtorCount == 1);
+}
+
 /// ditto
 void destroy(bool initialize = true, T : U[n], U, size_t n)(ref T obj) if (!is(T == struct))
 {
@@ -983,7 +1042,7 @@ template _isStaticArray(T)
 private
 {
     extern (C) Object _d_newclass(const TypeInfo_Class ci);
-    extern (C) void rt_finalize(void *data, bool det=true);
+    extern (C) void rt_finalize(void *data, bool det=true) nothrow;
 }
 
 public @trusted @nogc nothrow pure extern (C) void _d_delThrowable(scope Throwable);
@@ -1709,12 +1768,12 @@ class TypeInfo_AssociativeArray : TypeInfo
 
     override bool equals(in void* p1, in void* p2) @trusted const
     {
-        return !!_aaEqual(this, *cast(const void**) p1, *cast(const void**) p2);
+        return !!_aaEqual(this, *cast(const AA*) p1, *cast(const AA*) p2);
     }
 
     override hash_t getHash(scope const void* p) nothrow @trusted const
     {
-        return _aaGetHash(cast(void*)p, this);
+        return _aaGetHash(cast(AA*)p, this);
     }
 
     // BUG: need to add the rest of the functions
@@ -3074,30 +3133,43 @@ extern (C)
 {
     // from druntime/src/rt/aaA.d
 
-    // size_t _aaLen(in void* p) pure nothrow @nogc;
-    private void* _aaGetY(void** paa, const TypeInfo_AssociativeArray ti, in size_t valuesize, in void* pkey) pure nothrow;
-    private void* _aaGetX(void** paa, const TypeInfo_AssociativeArray ti, in size_t valuesize, in void* pkey, out bool found) pure nothrow;
-    // inout(void)* _aaGetRvalueX(inout void* p, in TypeInfo keyti, in size_t valuesize, in void* pkey);
-    inout(void)[] _aaValues(inout void* p, in size_t keysize, in size_t valuesize, const TypeInfo tiValArray) pure nothrow;
-    inout(void)[] _aaKeys(inout void* p, in size_t keysize, const TypeInfo tiKeyArray) pure nothrow;
-    void* _aaRehash(void** pp, in TypeInfo keyti) pure nothrow;
-    void _aaClear(void* p) pure nothrow;
+    version (LDC)
+    {
+        /* https://github.com/ldc-developers/ldc/issues/2782
+         * The real type is (non-importable) struct `rt.aaA.AA`;
+         * the compiler uses `void*` for its prototypes.
+         */
+        private alias AA = void*;
+    }
+    else
+    {
+        private struct AA { void* impl; }
+    }
+
+    // size_t _aaLen(in AA aa) pure nothrow @nogc;
+    private void* _aaGetY(AA* paa, const TypeInfo_AssociativeArray ti, in size_t valsz, in void* pkey) pure nothrow;
+    private void* _aaGetX(AA* paa, const TypeInfo_AssociativeArray ti, in size_t valsz, in void* pkey, out bool found) pure nothrow;
+    // inout(void)* _aaGetRvalueX(inout AA aa, in TypeInfo keyti, in size_t valsz, in void* pkey);
+    inout(void[]) _aaValues(inout AA aa, in size_t keysz, in size_t valsz, const TypeInfo tiValueArray) pure nothrow;
+    inout(void[]) _aaKeys(inout AA aa, in size_t keysz, const TypeInfo tiKeyArray) pure nothrow;
+    void* _aaRehash(AA* paa, in TypeInfo keyti) pure nothrow;
+    void _aaClear(AA aa) pure nothrow;
 
     // alias _dg_t = extern(D) int delegate(void*);
-    // int _aaApply(void* aa, size_t keysize, _dg_t dg);
+    // int _aaApply(AA aa, size_t keysize, _dg_t dg);
 
     // alias _dg2_t = extern(D) int delegate(void*, void*);
-    // int _aaApply2(void* aa, size_t keysize, _dg2_t dg);
+    // int _aaApply2(AA aa, size_t keysize, _dg2_t dg);
 
-    private struct AARange { void* impl; size_t idx; }
-    AARange _aaRange(void* aa) pure nothrow @nogc @safe;
+    private struct AARange { AA impl; size_t idx; }
+    AARange _aaRange(AA aa) pure nothrow @nogc @safe;
     bool _aaRangeEmpty(AARange r) pure nothrow @nogc @safe;
     void* _aaRangeFrontKey(AARange r) pure nothrow @nogc @safe;
     void* _aaRangeFrontValue(AARange r) pure nothrow @nogc @safe;
     void _aaRangePopFront(ref AARange r) pure nothrow @nogc @safe;
 
-    int _aaEqual(in TypeInfo tiRaw, in void* e1, in void* e2);
-    hash_t _aaGetHash(in void* aa, in TypeInfo tiRaw) nothrow;
+    int _aaEqual(in TypeInfo tiRaw, in AA aa1, in AA aa2);
+    hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow;
 
     /*
         _d_assocarrayliteralTX marked as pure, because aaLiteral can be called from pure code.
@@ -3122,13 +3194,13 @@ alias AssociativeArray(Key, Value) = Value[Key];
  */
 void clear(T : Value[Key], Value, Key)(T aa)
 {
-    _aaClear(*cast(void **) &aa);
+    _aaClear(*cast(AA *) &aa);
 }
 
 /* ditto */
 void clear(T : Value[Key], Value, Key)(T* aa)
 {
-    _aaClear(*cast(void **) aa);
+    _aaClear(*cast(AA *) aa);
 }
 
 ///
@@ -3149,28 +3221,28 @@ void clear(T : Value[Key], Value, Key)(T* aa)
  */
 T rehash(T : Value[Key], Value, Key)(T aa)
 {
-    _aaRehash(cast(void**)&aa, typeid(Value[Key]));
+    _aaRehash(cast(AA*)&aa, typeid(Value[Key]));
     return aa;
 }
 
 /* ditto */
 T rehash(T : Value[Key], Value, Key)(T* aa)
 {
-    _aaRehash(cast(void**)aa, typeid(Value[Key]));
+    _aaRehash(cast(AA*)aa, typeid(Value[Key]));
     return *aa;
 }
 
 /* ditto */
 T rehash(T : shared Value[Key], Value, Key)(T aa)
 {
-    _aaRehash(cast(void**)&aa, typeid(Value[Key]));
+    _aaRehash(cast(AA*)&aa, typeid(Value[Key]));
     return aa;
 }
 
 /* ditto */
 T rehash(T : shared Value[Key], Value, Key)(T* aa)
 {
-    _aaRehash(cast(void**)aa, typeid(Value[Key]));
+    _aaRehash(cast(AA*)aa, typeid(Value[Key]));
     return *aa;
 }
 
@@ -3197,7 +3269,7 @@ V[K] dup(T : V[K], K, V)(T aa)
     {
         import core.stdc.string : memcpy;
 
-        void* pv = _aaGetY(cast(void**)&result, typeid(V[K]), V.sizeof, &k);
+        void* pv = _aaGetY(cast(AA*)&result, typeid(V[K]), V.sizeof, &k);
         memcpy(pv, &v, V.sizeof);
         return *cast(V*)pv;
     }
@@ -3239,7 +3311,7 @@ private AARange _aaToRange(T: V[K], K, V)(ref T aa) pure nothrow @nogc @safe
         alias realAA = aa;
     else
         const(V[K]) realAA = aa;
-    return _aaRange(() @trusted { return cast(void*)realAA; } ());
+    return _aaRange(() @trusted { return *cast(AA*)&realAA; } ());
 }
 
 /***********************************
@@ -3408,7 +3480,12 @@ auto byKeyValue(T : V[K], K, V)(T* aa) pure nothrow @nogc
  */
 Key[] keys(T : Value[Key], Value, Key)(T aa) @property
 {
-    auto a = cast(void[])_aaKeys(cast(inout(void)*)aa, Key.sizeof, typeid(Key[]));
+    // ensure we are dealing with a genuine AA.
+    static if (is(const(Value[Key]) == const(T)))
+        alias realAA = aa;
+    else
+        const(Value[Key]) realAA = aa;
+    auto a = cast(void[])_aaKeys(*cast(inout(AA)*)&realAA, Key.sizeof, typeid(Key[]));
     auto res = *cast(Key[]*)&a;
     _doPostblit(res);
     return res;
@@ -3431,6 +3508,19 @@ Key[] keys(T : Value[Key], Value, Key)(T *aa) @property
     assert(sum == 3);
 }
 
+@system unittest
+{
+    static struct S
+    {
+        string str;
+        void[][string] dict;
+        alias dict this;
+    }
+
+    auto s = S("a");
+    assert(s.keys.length == 0);
+}
+
 /***********************************
  * Returns a dynamic array, the elements of which are the values in the
  * associative array.
@@ -3441,7 +3531,12 @@ Key[] keys(T : Value[Key], Value, Key)(T *aa) @property
  */
 Value[] values(T : Value[Key], Value, Key)(T aa) @property
 {
-    auto a = cast(void[])_aaValues(cast(inout(void)*)aa, Key.sizeof, Value.sizeof, typeid(Value[]));
+    // ensure we are dealing with a genuine AA.
+    static if (is(const(Value[Key]) == const(T)))
+        alias realAA = aa;
+    else
+        const(Value[Key]) realAA = aa;
+    auto a = cast(void[])_aaValues(*cast(inout(AA)*)&realAA, Key.sizeof, Value.sizeof, typeid(Value[]));
     auto res = *cast(Value[]*)&a;
     _doPostblit(res);
     return res;
@@ -3462,6 +3557,19 @@ Value[] values(T : Value[Key], Value, Key)(T *aa) @property
         sum += e;
 
     assert(sum == 3);
+}
+
+@system unittest
+{
+    static struct S
+    {
+        string str;
+        void[][string] dict;
+        alias dict this;
+    }
+
+    auto s = S("a");
+    assert(s.values.length == 0);
 }
 
 /***********************************
@@ -3511,12 +3619,12 @@ ref V require(K, V)(ref V[K] aa, K key, lazy V value = V.init)
     {
         auto p = () @trusted
         {
-            return cast(V*) _aaGetX(cast(void**) &aa, typeid(V[K]), V.sizeof, &key, found);
+            return cast(V*) _aaGetX(cast(AA*) &aa, typeid(V[K]), V.sizeof, &key, found);
         } ();
     }
     else
     {
-        auto p = cast(V*) _aaGetX(cast(void**) &aa, typeid(V[K]), V.sizeof, &key, found);
+        auto p = cast(V*) _aaGetX(cast(AA*) &aa, typeid(V[K]), V.sizeof, &key, found);
     }
     return found ? *p : (*p = value);
 }
@@ -3576,12 +3684,12 @@ if (isCreateOperation!(C, V) && isUpdateOperation!(U, V))
     {
         auto p = () @trusted
         {
-            return cast(V*) _aaGetX(cast(void**) &aa, typeid(V[K]), V.sizeof, &key, found);
+            return cast(V*) _aaGetX(cast(AA*) &aa, typeid(V[K]), V.sizeof, &key, found);
         } ();
     }
     else
     {
-        auto p = cast(V*) _aaGetX(cast(void**) &aa, typeid(V[K]), V.sizeof, &key, found);
+        auto p = cast(V*) _aaGetX(cast(AA*) &aa, typeid(V[K]), V.sizeof, &key, found);
     }
     if (!found)
         *p = create();
@@ -3987,7 +4095,10 @@ private
  */
 size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow @trusted
 {
-    return _d_arraysetcapacity(typeid(T[]), newcapacity, cast(void[]*)&arr);
+    if (__ctfe)
+        return newcapacity;
+    else
+        return _d_arraysetcapacity(typeid(T[]), newcapacity, cast(void[]*)&arr);
 }
 
 ///
@@ -4009,6 +4120,18 @@ size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow @trusted
     a ~= [5, 6, 7, 8];
     assert(p == &a[0]);      //a should not have been reallocated
     assert(u == a.capacity); //a should not have been extended
+}
+
+// https://issues.dlang.org/show_bug.cgi?id=12330, reserve() at CTFE time
+@safe unittest
+{
+    int[] foo() {
+        int[] result;
+        auto a = result.reserve = 5;
+        assert(a == 5);
+        return result;
+    }
+    enum r = foo();
 }
 
 // Issue 6646: should be possible to use array.reserve from SafeD.
@@ -4135,7 +4258,7 @@ version (none)
     }
 }
 
-version (D_Ddoc)
+version (CoreDdoc)
 {
     // This lets DDoc produce better documentation.
 
@@ -4214,14 +4337,23 @@ void __ctfeWrite(scope const(char)[] s) @nogc @safe pure nothrow {}
  * Create RTInfo for type T
  */
 
-template RTInfoImpl(size_t[] pointers)
+template RTInfoImpl(size_t[] pointerBitmap)
 {
-    immutable size_t[pointers.length] RTInfoImpl = pointers[];
+    immutable size_t[pointerBitmap.length] RTInfoImpl = pointerBitmap[];
+}
+
+template NoPointersBitmapPayload(size_t N)
+{
+    enum size_t[N] NoPointersBitmapPayload = 0;
 }
 
 template RTInfo(T)
 {
-    enum RTInfo = RTInfoImpl!(__traits(getPointerBitmap, T)).ptr;
+    enum pointerBitmap = __traits(getPointerBitmap, T);
+    static if (pointerBitmap[1 .. $] == NoPointersBitmapPayload!(pointerBitmap.length - 1))
+        enum RTInfo = rtinfoNoPointers;
+    else
+        enum RTInfo = RTInfoImpl!(pointerBitmap).ptr;
 }
 
 /**
@@ -4793,31 +4925,38 @@ Params:
 private void onArrayCastError()(string fromType, size_t fromSize, string toType, size_t toSize) @trusted
 {
     import core.internal.string : unsignedToTempString;
-    import core.stdc.stdlib : alloca;
 
-    const(char)[][8] msgComponents =
+    const(char)[][9] msgComponents =
     [
-        "Cannot cast `"
-        , fromType
-        , "` to `"
-        , toType
-        , "`; an array of size "
+        "An array of size "
         , unsignedToTempString(fromSize)
         , " does not align on an array of size "
         , unsignedToTempString(toSize)
+        , ", so `"
+        , fromType
+        , "` cannot be cast to `"
+        , toType
+        , "`"
     ];
 
     // convert discontiguous `msgComponents` to contiguous string on the stack
-    size_t length = 0;
-    foreach (m ; msgComponents)
-        length += m.length;
-
-    auto msg = (cast(char*)alloca(length))[0 .. length];
+    enum msgLength = 2048;
+    char[msgLength] msg;
 
     size_t index = 0;
-    foreach (m ; msgComponents)
+    foreach (m; msgComponents)
+    {
         foreach (c; m)
+        {
             msg[index++] = c;
+            if (index >= (msgLength - 1))
+                break;
+        }
+
+        if (index >= (msgLength - 1))
+            break;
+    }
+    msg[index] = '\0'; // null-termination
 
     // first argument must evaluate to `false` at compile-time to maintain memory safety in release builds
     assert(false, msg);

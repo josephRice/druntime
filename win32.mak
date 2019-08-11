@@ -114,8 +114,22 @@ unittest : $(SRCS) $(DRUNTIME)
 test_aa:
 	$(DMD) -m$(MODEL) -conf= -Isrc -defaultlib=$(DRUNTIME) -run test\aa\src\test_aa.d
 
+test_cpuid:
+	"$(MAKE)" -f test\cpuid\win64.mak "DMD=$(DMD)" MODEL=$(MODEL) "VCDIR=$(VCDIR)" DRUNTIMELIB=$(DRUNTIME) "CC=$(CC)" test
+
 test_hash:
 	$(DMD) -m$(MODEL) -conf= -Isrc -defaultlib=$(DRUNTIME) -run test\hash\src\test_hash.d
+
+test_gc:
+	"$(MAKE)" -f test\gc\win64.mak "DMD=$(DMD)" MODEL=$(MODEL) "VCDIR=$(VCDIR)" DRUNTIMELIB=$(DRUNTIME) "CC=$(CC)" test
+
+custom_gc:
+	$(MAKE) -f test\init_fini\win64.mak "DMD=$(DMD)" MODEL=$(MODEL) "VCDIR=$(VCDIR)" DRUNTIMELIB=$(DRUNTIME) "CC=$(CC)" test
+
+test_shared:
+	$(MAKE) -f test\shared\win64.mak "DMD=$(DMD)" MODEL=$(MODEL) "VCDIR=$(VCDIR)" DRUNTIMELIB=$(DRUNTIME) "CC=$(CC)" test
+
+test_all: test_aa test_cpuid test_hash test_gc custom_gc test_shared
 
 ################### zip/install/clean ##########################
 
@@ -136,4 +150,4 @@ clean:
 
 auto-tester-build: target
 
-auto-tester-test: unittest test_aa test_hash
+auto-tester-test: unittest test_all
